@@ -1,0 +1,197 @@
+/* Header Styles */
+.header {
+  border-bottom: 1px solid var(--mantine-color-gray-2);
+  display: flex;
+  align-items: center;
+  background-color: var(--mantine-color-white);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Navbar Styles */
+.navbar {
+  border-right: 1px solid var(--mantine-color-gray-2);
+  background-color: #1E5B3A;
+  background-image:
+    linear-gradient(to bottom, rgba(30, 91, 58, 0.55), rgba(30, 91, 58, 0.35)),
+    url('/image/sidebar-bg.png');
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  display: flex;
+  flex-direction: column;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Brand Section */
+.brandSection {
+  padding: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.22);
+}
+
+.brandLogo {
+  width: 100%;
+  display: block;
+  padding: 15px;
+}
+
+/* Menu Stack */
+.menuStack {
+  padding: 15px;
+}
+
+/* Menu Item */
+.menuItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 0.75rem;
+  border-radius: var(--mantine-radius-sm);
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 700;
+  font-size: 0.95rem;
+  transition: all 200ms ease;
+  width: 100%;
+
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+  }
+
+  &[data-active='true'] {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+    font-weight: 600;
+
+    .menuIcon {
+      color: #ffffff;
+    }
+  }
+}
+
+.menuIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  color: currentColor;
+}
+
+.menuLabel {
+  flex: 1;
+  text-align: left;
+}
+
+/* Header User Info */
+.userName {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--mantine-color-dark-9);
+  line-height: 1.2;
+}
+
+.userRole {
+  font-size: 0.8rem;
+  color: var(--mantine-color-gray-6);
+  line-height: 1.2;
+}
+
+/* Notification Bell Container */
+.notificationBell {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+  z-index: 20;
+}
+
+/* Ensure Mantine Badge inside notificationBell is visible and positioned */
+.notificationBell :global(.mantine-badge-root) {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  z-index: 30;
+  min-width: 20px;
+  height: auto;
+  padding: 2px 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+}
+
+.moduleTitle {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--mantine-color-dark-8);
+  line-height: 1;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .header {
+    background-color: var(--mantine-color-dark-7);
+    border-bottom-color: var(--mantine-color-dark-6);
+  }
+
+  .navbar {
+    border-right-color: var(--mantine-color-dark-6);
+  }
+
+  .brandSection {
+    border-bottom-color: var(--mantine-color-dark-6);
+  }
+
+  .brandLogo {
+    filter: brightness(1.1);
+  }
+
+  .menuItem {
+    color: var(--mantine-color-gray-4);
+
+    &:hover {
+      background-color: var(--mantine-color-dark-6);
+      color: var(--mantine-color-gray-1);
+    }
+
+    &[data-active='true'] {
+      background-color: var(--mantine-color-green-9);
+      color: var(--mantine-color-green-2);
+    }
+  }
+
+  .userName {
+    color: var(--mantine-color-gray-1);
+  }
+
+  .moduleTitle {
+    color: var(--mantine-color-gray-1);
+  }
+}
+
+/* Responsive */
+@media (max-width: 576px) {
+  .moduleTitle {
+    font-size: 1.1rem;
+  }
+
+  .menuLabel {
+    display: none;
+  }
+
+  .menuIcon {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+/* Global Menu Dropdown - Apply Inter font */
+:global([role='menu']) {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}

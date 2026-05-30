@@ -13,6 +13,7 @@ export * from './collection-list';
 export * from './color';
 export * from './content-layout';
 export * from './content-navigation';
+export * from './dashboard-layout';
 export * from './datetime';
 export * from './divider';
 export * from './file';
