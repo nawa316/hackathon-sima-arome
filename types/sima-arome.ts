@@ -66,6 +66,9 @@ export interface Warehouse {
   log_id?: string;
   name: string;
   location: number; // Surabaya coordinates represented as BIGINT
+  code: string;
+  capacity: number;
+  status: 'ACTIVE' | 'INACTIVE';
   created_at: string;
   active_log?: ColdStorageLog;
 }
@@ -177,5 +180,19 @@ export interface AuditTrail {
   old_data?: string;
   new_data?: string;
   timestamp: string;
+  user?: User;
+}
+
+export interface StockMovement {
+  id: string;
+  raw_material_id?: string;
+  product_stock_id?: string;
+  activity_type: 'STOCK_IN' | 'STOCK_OUT' | 'STOCK_ADJUSTMENT';
+  quantity: number;
+  description: string;
+  created_at: string;
+  created_by?: string;
+  raw_material?: RawMaterial;
+  product_stock?: ProductStock;
   user?: User;
 }

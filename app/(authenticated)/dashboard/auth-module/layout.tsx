@@ -1,28 +1,20 @@
 'use client';
 
-import React, { ReactNode, createContext, useState, use, useMemo } from 'react';
+import React, { ReactNode, useState, use, useMemo } from 'react';
 import {
   IconLayoutDashboard,
   IconUsers,
   IconShieldLock,
+  IconLogout,
+  IconBuildingWarehouse,
+  IconPackages,
 } from '@tabler/icons-react';
 import {
   DashboardLayout,
   type DashboardMenuItem,
 } from '@/components/ui/dashboard-layout';
 import { useRouter, usePathname } from 'next/navigation';
-
-/**
- * Context untuk moduleTitle
- * Memungkinkan setiap page untuk set moduleTitle sendiri
- */
-export const ModuleTitleContext = createContext<{
-  moduleTitle: string;
-  setModuleTitle: (title: string) => void;
-}>({
-  moduleTitle: 'Dashboard',
-  setModuleTitle: () => {},
-});
+import { ModuleTitleContext } from '@/lib/context/ModuleTitleContext';
 
 /**
  * Dashboard Shared Layout
@@ -49,9 +41,27 @@ export default function DashboardLayoutWrapper({
     const baseMenuItems: DashboardMenuItem[] = [
       {
         id: 'dashboard',
-        label: 'Dashboard',
+        label: 'Dashboard Overview',
         icon: <IconLayoutDashboard size={20} />,
         href: '/dashboard/auth-module',
+      },
+      {
+        id: 'dashboard-scm',
+        label: 'Dashboard SCM',
+        icon: <IconLayoutDashboard size={20} />,
+        href: '/dashboard/warehouse-module',
+      },
+      {
+        id: 'warehouse-management',
+        label: 'Warehouse Management',
+        icon: <IconBuildingWarehouse size={20} />,
+        href: '/dashboard/warehouse-module/warehouse',
+      },
+      {
+        id: 'stock-management',
+        label: 'Stock Management',
+        icon: <IconPackages size={20} />,
+        href: '/dashboard/warehouse-module/product',
       },
       {
         id: 'role-management',
@@ -69,17 +79,19 @@ export default function DashboardLayoutWrapper({
       },
     ];
 
-    return baseMenuItems.map((item) => {
-      const isActive = item.href === '/dashboard/auth-module'
-        ? pathname === '/dashboard/auth-module'
-        : item.href === '/dashboard'
-        ? pathname === '/dashboard'
-        : pathname === item.href || pathname.startsWith(item.href + '/');
-      return {
-        ...item,
-        active: isActive,
-      };
-    });
+    // Separate SCM module menus and Auth/User/Role module menus completely
+    const isScmModule = pathname.startsWith('/dashboard/warehouse-module');
+    const filteredMenuItems = isScmModule
+      ? baseMenuItems.filter((item) => item.id !== 'role-management' && item.id !== 'user-management' && item.id !== 'dashboard')
+      : baseMenuItems.filter((item) => item.id !== 'dashboard-scm' && item.id !== 'warehouse-management' && item.id !== 'stock-management');
+
+    // Set active state based on current pathname
+    return filteredMenuItems.map((item) => ({
+      ...item,
+      active: item.href === '/dashboard' 
+        ? pathname === '/dashboard' 
+        : pathname === item.href || pathname.startsWith(item.href + '/'),
+    }));
   }, [pathname]);
 
   const handleMenuItemClick = (item: DashboardMenuItem) => {
@@ -113,3 +125,4 @@ export default function DashboardLayoutWrapper({
     </ModuleTitleContext.Provider>
   );
 }
+

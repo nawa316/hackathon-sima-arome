@@ -42,7 +42,7 @@ export default function ChooseModuleClient({
       permissionCode: 'warehouse',
       title: 'Warehouse',
       icon: <IconBuildingWarehouse size={32} stroke={1.5} />,
-      href: '/dashboard/warehouse',
+      href: '/dashboard/warehouse-module',
       description: 'Manage cold storage inventory & stocks',
     },
     {
