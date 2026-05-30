@@ -1,7 +1,7 @@
 'use client';
 
 import { useContext, useEffect } from 'react';
-import { ModuleTitleContext } from '@/app/(authenticated)/dashboard/auth-module/layout';
+import { ModuleTitleContext } from '@/lib/context/ModuleTitleContext';
 
 /**
  * Hook untuk set moduleTitle dari halaman child

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { ReactNode, useState, useEffect } from 'react';
-import { ModuleTitleContext } from '@/app/(authenticated)/dashboard/auth-module/layout';
+import { ModuleTitleContext } from '@/lib/context/ModuleTitleContext';
 
 export interface ModuleProviderProps {
   children: ReactNode;

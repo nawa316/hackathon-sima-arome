@@ -227,7 +227,7 @@ export default function ProductQCDetailPage({
       });
 
       // Redirect back to list
-      router.push('/dashboard/qc/product');
+      router.push('/dashboard/quality-control/product');
     } catch (err) {
       console.error('Failed to submit QC Result:', err);
       notifications.show({
@@ -251,9 +251,9 @@ export default function ProductQCDetailPage({
 
   // Breadcrumbs items
   const breadcrumbItems = [
-    { title: 'Dashboard', href: '/dashboard/qc' },
-    { title: 'Product QC', href: '/dashboard/qc/product' },
-    { title: production?.lot_number || 'Detail', href: `/dashboard/qc/product/${id}` },
+    { title: 'Dashboard', href: '/dashboard/quality-control' },
+    { title: 'Product QC', href: '/dashboard/quality-control/product' },
+    { title: production?.lot_number || 'Detail', href: `/dashboard/quality-control/product/${id}` },
   ].map((item, index) => (
     <Anchor component={Link} href={item.href} key={index} style={{ fontSize: 'var(--ds-font-size-xs)' }}>
       {item.title}
@@ -289,7 +289,7 @@ export default function ProductQCDetailPage({
           <Breadcrumbs>{breadcrumbItems}</Breadcrumbs>
           <Button
             component={Link}
-            href="/dashboard/qc/product"
+            href="/dashboard/quality-control/product"
             variant="subtle"
             leftSection={<IconArrowLeft size={16} />}
             color="gray"

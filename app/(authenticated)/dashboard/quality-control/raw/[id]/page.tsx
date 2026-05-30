@@ -234,7 +234,7 @@ export default function RawMaterialQCDetailPage({
       });
 
       // Redirect back to list
-      router.push('/dashboard/qc/raw');
+      router.push('/dashboard/quality-control/raw');
     } catch (err) {
       console.error('Failed to submit QC Result:', err);
       notifications.show({
@@ -258,9 +258,9 @@ export default function RawMaterialQCDetailPage({
 
   // Breadcrumbs items
   const breadcrumbItems = [
-    { title: 'Dashboard', href: '/dashboard/qc' },
-    { title: 'Raw Material QC', href: '/dashboard/qc/raw' },
-    { title: material?.batch_code || 'Detail', href: `/dashboard/qc/raw/${id}` },
+    { title: 'Dashboard', href: '/dashboard/quality-control' },
+    { title: 'Raw Material QC', href: '/dashboard/quality-control/raw' },
+    { title: material?.batch_code || 'Detail', href: `/dashboard/quality-control/raw/${id}` },
   ].map((item, index) => (
     <Anchor component={Link} href={item.href} key={index} style={{ fontSize: 'var(--ds-font-size-xs)' }}>
       {item.title}
@@ -296,7 +296,7 @@ export default function RawMaterialQCDetailPage({
           <Breadcrumbs>{breadcrumbItems}</Breadcrumbs>
           <Button
             component={Link}
-            href="/dashboard/qc/raw"
+            href="/dashboard/quality-control/raw"
             variant="subtle"
             leftSection={<IconArrowLeft size={16} />}
             color="gray"

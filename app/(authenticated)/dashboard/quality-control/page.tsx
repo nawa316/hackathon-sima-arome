@@ -264,10 +264,10 @@ export default function QCDashboardPage() {
             <Text c="dimmed">Here's what's happening in your quality operations today</Text>
           </div>
           <Group gap="sm">
-            <Button component={Link} href="/dashboard/qc/raw" variant="filled" color="primary">
+            <Button component={Link} href="/dashboard/quality-control/raw" variant="filled" color="primary">
               Inspect Raw Material
             </Button>
-            <Button component={Link} href="/dashboard/qc/product" variant="light" color="primary">
+            <Button component={Link} href="/dashboard/quality-control/product" variant="light" color="primary">
               Inspect Product Batch
             </Button>
           </Group>
@@ -463,7 +463,7 @@ export default function QCDashboardPage() {
                 Latest completed batch inspections
               </Text>
             </div>
-            <Button variant="outline" color="primary" component={Link} href="/dashboard/qc/raw">
+            <Button variant="outline" color="primary" component={Link} href="/dashboard/quality-control/raw">
               View Activity Log
             </Button>
           </Group>
