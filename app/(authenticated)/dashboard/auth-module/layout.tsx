@@ -5,6 +5,9 @@ import {
   IconLayoutDashboard,
   IconUsers,
   IconShieldLock,
+  IconLogout,
+  IconBuildingWarehouse,
+  IconPackages,
 } from '@tabler/icons-react';
 import {
   DashboardLayout,
@@ -38,9 +41,27 @@ export default function DashboardLayoutWrapper({
     const baseMenuItems = [
       {
         id: 'dashboard',
-        label: 'Dashboard',
+        label: 'Dashboard Overview',
         icon: <IconLayoutDashboard size={20} />,
         href: '/dashboard/auth-module',
+      },
+      {
+        id: 'dashboard-scm',
+        label: 'Dashboard SCM',
+        icon: <IconLayoutDashboard size={20} />,
+        href: '/dashboard/scm',
+      },
+      {
+        id: 'warehouse-management',
+        label: 'Warehouse Management',
+        icon: <IconBuildingWarehouse size={20} />,
+        href: '/dashboard/scm/warehouse',
+      },
+      {
+        id: 'stock-management',
+        label: 'Stock Management',
+        icon: <IconPackages size={20} />,
+        href: '/dashboard/scm/stocks',
       },
       {
         id: 'role-management',
@@ -56,10 +77,18 @@ export default function DashboardLayoutWrapper({
       },
     ];
 
+    // Separate SCM module menus and Auth/User/Role module menus completely
+    const isScmModule = pathname.startsWith('/dashboard/scm') || pathname.startsWith('/dashboard/warehouse');
+    const filteredMenuItems = isScmModule
+      ? baseMenuItems.filter((item) => item.id !== 'role-management' && item.id !== 'user-management' && item.id !== 'dashboard')
+      : baseMenuItems.filter((item) => item.id !== 'dashboard-scm' && item.id !== 'warehouse-management' && item.id !== 'stock-management');
+
     // Set active state based on current pathname
-    return baseMenuItems.map((item) => ({
+    return filteredMenuItems.map((item) => ({
       ...item,
-      active: pathname === item.href,
+      active: item.href === '/dashboard' 
+        ? pathname === '/dashboard' 
+        : pathname === item.href || pathname.startsWith(item.href + '/'),
     }));
   }, [pathname]);
 
