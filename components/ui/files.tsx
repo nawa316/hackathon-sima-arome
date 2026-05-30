@@ -12,7 +12,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Box, Button, Group, Stack, Text, Paper, Badge, Tooltip, Pagination, Menu, ActionIcon, Modal, TextInput, Loader } from '@mantine/core';
 import { IconTrash, IconDownload, IconExternalLink, IconFolder, IconDotsVertical, IconUpload, IconFolderOpen, IconX } from '@tabler/icons-react';
 import { type FileUpload } from './upload';
-import '../upload/Upload.css';
+import './upload.css';
 import { daasAPI, type DaaSFile } from '@/lib/buildpad/hooks';
 import { useFiles } from '@/lib/buildpad/hooks';
 import { isNewItem } from '@/lib/buildpad/utils';

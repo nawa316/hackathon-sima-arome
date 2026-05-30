@@ -1,112 +1,98 @@
-'use client';
+import React from 'react';
+import { createClient } from '@/lib/supabase/server';
+import ChooseModuleClient from './ChooseModuleClient';
 
-import { Container, Paper, SimpleGrid, Stack, Text, Title, Group, RingProgress, Button } from '@mantine/core';
-import { IconTrendingUp, IconUsers, IconFileText } from '@tabler/icons-react';
-import { useSetModuleTitle } from '@/lib/hooks/useSetModuleTitle';
+export const dynamic = 'force-dynamic';
 
-/**
- * Dashboard Main Page
- * Shows dashboard overview with key metrics
- */
-export default function DashboardPage() {
-  useSetModuleTitle('Dashboard');
+export default async function ChooseModulePage() {
+  let displayName = 'ESSENTIALS';
+  let allowedModuleCodes: string[] = [];
+  let isSuperAdmin = false;
+  let errorMessage: string | null = null;
 
-  return (
-    <Container size="xl" py="xl">
-      <Stack gap="lg">
-        {/* Header */}
-        <Group justify="space-between" align="flex-end">
-          <div>
-            <Title order={1}>Hello, Essentials!</Title>
-            <Text c="dimmed">Here's what's happening in your operations today</Text>
-          </div>
-          <Button variant="light">Generate Report</Button>
-        </Group>
+  try {
+    const supabase = await createClient();
 
-        {/* Key Metrics */}
-        <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="lg">
-          {/* Total Active Users */}
-          <MetricCard
-            title="Total Active Users"
-            value="2,543"
-            icon={<IconUsers size={20} />}
-            change={12}
-          />
+    // 1. Get current authenticated user session on server side
+    const { data: { user }, error: authErr } = await supabase.auth.getUser();
+    if (authErr || !user) {
+      throw new Error('Sesi Anda telah berakhir. Silakan login kembali.');
+    }
 
-          {/* Revenue */}
-          <MetricCard
-            title="Total Revenue"
-            value="$45,231"
-            icon={<IconTrendingUp size={20} />}
-            change={8.5}
-          />
+    // 2. Fetch profile from public.users table and join roles info
+    const { data: profile, error: profileErr } = await supabase
+      .from('users')
+      .select('*, roles(id, name, description)')
+      .eq('id', user.id)
+      .single();
 
-          {/* Pending Tasks */}
-          <MetricCard
-            title="Pending Tasks"
-            value="18"
-            icon={<IconFileText size={20} />}
-            change={-3}
-          />
+    if (profileErr) {
+      console.error('Error fetching profile details:', profileErr);
+      throw new Error('Gagal memuat profil pengguna dari database.');
+    }
 
-          {/* Conversion Rate */}
-          <MetricCard
-            title="Conversion Rate"
-            value="3.24%"
-            icon={<IconTrendingUp size={20} />}
-            change={2.1}
-          />
-        </SimpleGrid>
+    if (!profile) {
+      throw new Error('Profil pengguna tidak ditemukan.');
+    }
 
-        {/* Content Area */}
-        <Paper p="lg" radius="md" withBorder>
-          <Stack gap="md">
-            <div>
-              <Title order={3}>Recent Activity</Title>
-              <Text c="dimmed" size="sm">
-                No recent activity to display. Try creating some tasks or inviting team members.
-              </Text>
-            </div>
-            <Button variant="light" fullWidth>
-              View Full Activity Log
-            </Button>
-          </Stack>
-        </Paper>
-      </Stack>
-    </Container>
-  );
-}
+    displayName = profile.fullname || profile.email || 'ESSENTIALS';
+    const userRole = profile.roles;
 
-/**
- * Reusable Metric Card Component
- */
-function MetricCard({
-  title,
-  value,
-  icon,
-  change,
-}: {
-  title: string;
-  value: string;
-  icon: React.ReactNode;
-  change: number;
-}) {
-  const isPositive = change >= 0;
+    if (!userRole) {
+      throw new Error('Anda belum memiliki akses ke modul mana pun. Silakan hubungi Super Admin.');
+    }
+
+    // 3. Super Admin Protections - bypass filters and grant full workspace access
+    if (userRole.name === 'Super Admin') {
+      isSuperAdmin = true;
+      allowedModuleCodes = ['authenticator', 'warehouse', 'productions', 'raw_materials', 'quality_control'];
+    } else {
+      // 4. Staff/Operational Access filters - Query dynamic permissions via bridge table
+      const { data: rolePermissions, error: rpErr } = await supabase
+        .from('role_permissions')
+        .select(`
+          permission_id,
+          permissions (
+            code,
+            name
+          )
+        `)
+        .eq('role_id', userRole.id);
+
+      if (rpErr) {
+        console.error('Error loading role privileges:', rpErr);
+        throw new Error('Gagal memuat hak akses otorisasi untuk peran Anda.');
+      }
+
+      // Map relation to pull list of enabled module permission codes
+      const parsedCodes = rolePermissions
+        ?.map((rp: any) => {
+          if (!rp.permissions) return null;
+          // Handle cases where relationship fields are returned as arrays
+          if (Array.isArray(rp.permissions)) {
+            return rp.permissions[0]?.code;
+          }
+          return rp.permissions.code;
+        })
+        .filter(Boolean) || [];
+
+      allowedModuleCodes = parsedCodes;
+
+      if (allowedModuleCodes.length === 0) {
+        throw new Error('Anda belum memiliki akses ke modul mana pun. Silakan hubungi Super Admin.');
+      }
+    }
+  } catch (err: any) {
+    console.error('Error in Server RBAC Module Selector load:', err);
+    errorMessage = err.message || 'Terjadi gangguan koneksi pada server.';
+  }
 
   return (
-    <Paper p="lg" radius="md" withBorder>
-      <Group justify="space-between" align="flex-start">
-        <Stack gap="sm" style={{ flex: 1 }}>
-          <Text size="sm" fw={500} c="dimmed">
-            {title}
-          </Text>
-          <Title order={3}>{value}</Title>
-          <Text size="xs" c={isPositive ? 'teal' : 'red'}>
-            {isPositive ? '↑' : '↓'} {Math.abs(change)}% from last month
-          </Text>
-        </Stack>
-        <div style={{ opacity: 0.5 }}>{icon}</div>
-      </Group>
-    </Paper>
+    <ChooseModuleClient
+      displayName={displayName}
+      allowedModuleCodes={allowedModuleCodes}
+      isSuperAdmin={isSuperAdmin}
+      errorMessage={errorMessage}
+    />
   );
 }

@@ -28,6 +28,8 @@ import {
 import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
+import { resetUserPasswordAction } from '@/app/actions/user-actions';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -50,6 +52,7 @@ export default function LoginPage() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [userId, setUserId] = useState<string | null>(null);
 
   const form = useForm({
     initialValues: {
@@ -130,9 +133,10 @@ export default function LoginPage() {
     setConfirmPassword('');
     setOtpError('');
     setPasswordError('');
+    setUserId(null);
   };
 
-  const handleStep1Submit = () => {
+  const handleStep1Submit = async () => {
     if (!fullname || !emailAddress || !role) {
       notifications.show({
         title: 'Form Incomplete',
@@ -141,7 +145,43 @@ export default function LoginPage() {
       });
       return;
     }
-    setViewState('forgot_step2');
+    setLoading(true);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, fullname, email, roles!inner(name)')
+        .eq('email', emailAddress.trim().toLowerCase())
+        .eq('fullname', fullname.trim())
+        .eq('roles.name', role)
+        .maybeSingle();
+
+      if (error || !data) {
+        notifications.show({
+          title: 'User Not Found',
+          message: 'Akun dengan informasi tersebut tidak ditemukan di sistem. Silakan periksa kembali Nama, Email, dan Peran Anda.',
+          color: 'red',
+        });
+        return;
+      }
+
+      setUserId(data.id);
+      notifications.show({
+        title: 'Verification Request',
+        message: 'Verification code has been successfully generated.',
+        color: 'green',
+      });
+      setViewState('forgot_step2');
+    } catch (err: any) {
+      console.error('Error verifying user profile:', err);
+      notifications.show({
+        title: 'System Error',
+        message: 'Gagal melakukan verifikasi akun. Silakan coba kembali.',
+        color: 'red',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleStep2Submit = () => {
@@ -153,7 +193,7 @@ export default function LoginPage() {
     }
   };
 
-  const handleStep3Submit = () => {
+  const handleStep3Submit = async () => {
     if (!newPassword || !confirmPassword) {
       setPasswordError('Please fill in both password fields.');
       return;
@@ -174,14 +214,30 @@ export default function LoginPage() {
     }
 
     setPasswordError('');
+    setLoading(true);
+    try {
+      const res = await resetUserPasswordAction({
+        userId: userId!,
+        newPassword_raw: newPassword,
+      });
 
-    notifications.show({
-      title: 'Success',
-      message: 'Password successfully updated! Please sign in with your new password.',
-      color: 'green',
-    });
+      if (!res.success) {
+        throw new Error(res.error || 'Gagal menyetel ulang password');
+      }
 
-    handleReturnToLogin();
+      notifications.show({
+        title: 'Success',
+        message: 'Password successfully updated! Please sign in with your new password.',
+        color: 'green',
+      });
+
+      handleReturnToLogin();
+    } catch (err: any) {
+      console.error('Password reset action failed:', err);
+      setPasswordError(err.message || 'Gagal mengubah password di server.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Roles from Sima Arôme system specification (Viewer removed as requested)
