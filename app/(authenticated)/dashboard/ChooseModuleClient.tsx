@@ -50,7 +50,7 @@ export default function ChooseModuleClient({
       permissionCode: 'productions',
       title: 'Productions',
       icon: <IconFlask size={32} stroke={1.5} />,
-      href: '/dashboard/productions',
+      href: '/dashboard/production-module',
       description: 'Track compounding timeline & batching',
     },
     {
@@ -66,7 +66,7 @@ export default function ChooseModuleClient({
       permissionCode: 'quality_control',
       title: 'Quality Control',
       icon: <IconClipboardCheck size={32} stroke={1.5} />,
-      href: '/dashboard/quality-control',
+      href: '/dashboard/quality-control-module',
       description: 'Verify raw materials & lots testing',
     }
   ];

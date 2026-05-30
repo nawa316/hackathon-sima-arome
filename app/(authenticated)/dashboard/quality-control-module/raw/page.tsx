@@ -149,8 +149,8 @@ export default function RawMaterialQCListPage() {
 
   // Breadcrumbs items
   const breadcrumbItems = [
-    { title: 'Dashboard', href: '/dashboard/quality-control' },
-    { title: 'Raw Material QC', href: '/dashboard/quality-control/raw' },
+    { title: 'Dashboard', href: '/dashboard/quality-control-module' },
+    { title: 'Raw Material QC', href: '/dashboard/quality-control-module/raw' },
   ].map((item, index) => (
     <Anchor component={Link} href={item.href} key={index} style={{ fontSize: 'var(--ds-font-size-xs)' }}>
       {item.title}
@@ -287,7 +287,7 @@ export default function RawMaterialQCListPage() {
                             color="primary"
                             leftSection={<IconClipboardCheck size={14} />}
                             component={Link}
-                            href={`/dashboard/quality-control/raw/${item.id}`}
+                            href={`/dashboard/quality-control-module/raw/${item.id}`}
                           >
                             Perform QC
                           </Button>
@@ -298,7 +298,7 @@ export default function RawMaterialQCListPage() {
                             color="gray"
                             leftSection={<IconEye size={14} />}
                             component={Link}
-                            href={`/dashboard/quality-control/raw/${item.id}`}
+                            href={`/dashboard/quality-control-module/raw/${item.id}`}
                           >
                             View Detail
                           </Button>

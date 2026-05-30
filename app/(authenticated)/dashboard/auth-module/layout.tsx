@@ -65,17 +65,15 @@ export default function DashboardLayoutWrapper({
       },
       {
         id: 'role-management',
-        label: 'Role Management',
+        label: 'Roles',
         icon: <IconShieldLock size={20} />,
         href: '/dashboard/auth-module/roles',
-        badge: '3',
       },
       {
         id: 'user-management',
-        label: 'User Management',
+        label: 'Users',
         icon: <IconUsers size={20} />,
         href: '/dashboard/auth-module/users',
-        badge: '12',
       },
     ];
 

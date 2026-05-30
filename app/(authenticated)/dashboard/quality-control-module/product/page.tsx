@@ -158,8 +158,8 @@ export default function ProductQCListPage() {
 
   // Breadcrumbs items
   const breadcrumbItems = [
-    { title: 'Dashboard', href: '/dashboard/quality-control' },
-    { title: 'Product QC', href: '/dashboard/quality-control/product' },
+    { title: 'Dashboard', href: '/dashboard/quality-control-module' },
+    { title: 'Product QC', href: '/dashboard/quality-control-module/product' },
   ].map((item, index) => (
     <Anchor component={Link} href={item.href} key={index} style={{ fontSize: 'var(--ds-font-size-xs)' }}>
       {item.title}
@@ -300,7 +300,7 @@ export default function ProductQCListPage() {
                             color="primary"
                             leftSection={<IconClipboardCheck size={14} />}
                             component={Link}
-                            href={`/dashboard/quality-control/product/${item.id}`}
+                            href={`/dashboard/quality-control-module/product/${item.id}`}
                           >
                             Perform QC
                           </Button>
@@ -311,7 +311,7 @@ export default function ProductQCListPage() {
                             color="gray"
                             leftSection={<IconEye size={14} />}
                             component={Link}
-                            href={`/dashboard/quality-control/product/${item.id}`}
+                            href={`/dashboard/quality-control-module/product/${item.id}`}
                           >
                             View Detail
                           </Button>

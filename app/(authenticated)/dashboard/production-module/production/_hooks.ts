@@ -82,7 +82,11 @@ export function useCreateProduction() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
-      return await res.json();
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || json.message || (json.errors && json.errors[0]?.message) || `Failed to create production (${res.status})`);
+      }
+      return json;
     } finally {
       setLoading(false);
     }
@@ -100,7 +104,11 @@ export function useUpdateProduction() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
-      return await res.json();
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || json.message || (json.errors && json.errors[0]?.message) || `Failed to update production (${res.status})`);
+      }
+      return json;
     } finally {
       setLoading(false);
     }
@@ -113,7 +121,11 @@ export function useDeleteProduction() {
   const remove = useCallback(async (id: string) => {
     setLoading(true);
     try {
-      await fetch(`${BASE}/productions/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${BASE}/productions/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error || json.message || (json.errors && json.errors[0]?.message) || `Failed to delete production (${res.status})`);
+      }
     } finally {
       setLoading(false);
     }
@@ -163,7 +175,11 @@ export function useCreateProductionPhase() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
-      return await res.json();
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || json.message || (json.errors && json.errors[0]?.message) || `Failed to create production phase (${res.status})`);
+      }
+      return json;
     } finally {
       setLoading(false);
     }
@@ -181,7 +197,11 @@ export function useUpdateProductionPhase() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
-      return await res.json();
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || json.message || (json.errors && json.errors[0]?.message) || `Failed to update production phase (${res.status})`);
+      }
+      return json;
     } finally {
       setLoading(false);
     }
@@ -194,7 +214,11 @@ export function useDeleteProductionPhase() {
   const remove = useCallback(async (id: string) => {
     setLoading(true);
     try {
-      await fetch(`${BASE}/productions_phase/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${BASE}/productions_phase/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error || json.message || (json.errors && json.errors[0]?.message) || `Failed to delete production phase (${res.status})`);
+      }
     } finally {
       setLoading(false);
     }
@@ -244,7 +268,11 @@ export function useCreateProductionMaterial() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
-      return await res.json();
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || json.message || (json.errors && json.errors[0]?.message) || `Failed to create production material (${res.status})`);
+      }
+      return json;
     } finally {
       setLoading(false);
     }
@@ -257,7 +285,11 @@ export function useDeleteProductionMaterial() {
   const remove = useCallback(async (id: string) => {
     setLoading(true);
     try {
-      await fetch(`${BASE}/productions_materials/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${BASE}/productions_materials/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error || json.message || (json.errors && json.errors[0]?.message) || `Failed to delete production material (${res.status})`);
+      }
     } finally {
       setLoading(false);
     }

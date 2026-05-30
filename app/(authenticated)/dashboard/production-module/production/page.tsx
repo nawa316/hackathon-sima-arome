@@ -77,27 +77,51 @@ export default function ProductionPage() {
   };
 
   const handleCreate = useCallback(async (data: CreateProductionRequest) => {
-    await create(data);
-    closeCreate();
-    refetch();
-    notifications.show({ title: 'Success', message: 'Production created', color: 'teal' });
+    try {
+      await create(data);
+      closeCreate();
+      refetch();
+      notifications.show({ title: 'Success', message: 'Production created', color: 'teal' });
+    } catch (error: any) {
+      notifications.show({
+        title: 'Error',
+        message: error.message || 'Failed to create production batch',
+        color: 'red',
+      });
+    }
   }, [create, closeCreate, refetch]);
 
   const handleEdit = useCallback(async (data: UpdateProductionRequest) => {
     if (!editTarget) return;
-    await update(editTarget.id, data);
-    closeEdit();
-    refetch();
-    notifications.show({ title: 'Success', message: 'Production updated', color: 'teal' });
+    try {
+      await update(editTarget.id, data);
+      closeEdit();
+      refetch();
+      notifications.show({ title: 'Success', message: 'Production updated', color: 'teal' });
+    } catch (error: any) {
+      notifications.show({
+        title: 'Error',
+        message: error.message || 'Failed to update production batch',
+        color: 'red',
+      });
+    }
   }, [update, editTarget, closeEdit, refetch]);
 
   const handleDelete = useCallback(async () => {
     if (!deleteTarget) return;
-    await remove(deleteTarget.id);
-    closeDelete();
-    refetch();
-    setDeleteTarget(null);
-    notifications.show({ title: 'Deleted', message: 'Production deleted', color: 'red' });
+    try {
+      await remove(deleteTarget.id);
+      closeDelete();
+      refetch();
+      setDeleteTarget(null);
+      notifications.show({ title: 'Deleted', message: 'Production deleted', color: 'red' });
+    } catch (error: any) {
+      notifications.show({
+        title: 'Error',
+        message: error.message || 'Failed to delete production batch',
+        color: 'red',
+      });
+    }
   }, [remove, deleteTarget, closeDelete, refetch]);
 
   return (
