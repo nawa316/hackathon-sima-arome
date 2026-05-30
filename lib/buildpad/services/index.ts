@@ -40,6 +40,7 @@ export {
   getGlobalDaaSConfig,
   setGlobalDaaSConfig,
   useDaaSContext,
+  useDaaSContextOptional,
   useIsDaaSReady,
   useIsDirectDaaSMode,
   type DaaSConfig,

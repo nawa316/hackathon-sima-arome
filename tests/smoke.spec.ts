@@ -5,13 +5,12 @@ test.describe("Sima Arôme SCM Smoke Test", () => {
     // Visit the home page (which redirects to /login)
     await page.goto("/");
 
-    // Verify brand display heading is visible
-    const brandTitle = page.locator("h1");
-    await expect(brandTitle).toBeVisible();
-    await expect(brandTitle).toHaveText("Sima Arôme");
+    // Verify the Sima Arôme Logo image is visible
+    const logo = page.locator("img[alt='Sima Arôme Logo']");
+    await expect(logo).toBeVisible();
 
     // Verify sub-heading text is visible
-    const systemSubheader = page.locator("text=Supply Chain Management System");
+    const systemSubheader = page.locator("text=Sign in to access your dashboard");
     await expect(systemSubheader).toBeVisible();
 
     // Verify the email field of the login form is present
