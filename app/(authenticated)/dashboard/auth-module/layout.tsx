@@ -3,10 +3,9 @@
 import React, { ReactNode, createContext, useState, use, useMemo } from 'react';
 import {
   IconLayoutDashboard,
-  IconBottle,
-  IconBuildingFactory2,
-  IconTimeline,
-  IconClipboardList,
+  IconUsers,
+  IconShieldLock,
+  IconLogout,
 } from '@tabler/icons-react';
 import {
   DashboardLayout,
@@ -53,31 +52,21 @@ export default function DashboardLayoutWrapper({
         id: 'dashboard',
         label: 'Dashboard',
         icon: <IconLayoutDashboard size={20} />,
-        href: '/dashboard',
+        href: '/dashboard/auth-module',
       },
       {
-        id: 'products',
-        label: 'Products',
-        icon: <IconBottle size={20} />,
-        href: '/dashboard/production-module/product',
+        id: 'role-management',
+        label: 'Role Management',
+        icon: <IconShieldLock size={20} />,
+        href: '/dashboard/roles',
+        badge: '3',
       },
       {
-        id: 'production',
-        label: 'Production',
-        icon: <IconBuildingFactory2 size={20} />,
-        href: '/dashboard/production-module/production',
-      },
-      {
-        id: 'tracking-phase',
-        label: 'Tracking phase',
-        icon: <IconTimeline size={20} />,
-        href: '/dashboard/production-module/tracking-phase',
-      },
-      {
-        id: 'phase',
-        label: 'Phase',
-        icon: <IconClipboardList size={20} />,
-        href: '/dashboard/production-module/phase',
+        id: 'user-management',
+        label: 'User Management',
+        icon: <IconUsers size={20} />,
+        href: '/dashboard/users',
+        badge: '12',
       },
     ];
 
@@ -98,7 +87,6 @@ export default function DashboardLayoutWrapper({
   };
 
   const handleLogout = async () => {
-    // TODO: Implement logout logic with auth API
     router.push('/login');
   };
 
