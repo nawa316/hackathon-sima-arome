@@ -214,12 +214,12 @@ export default function WarehouseDetailPage({ params }: { params: Promise<{ id: 
               </Group>
               <Group justify="space-between" mt="xs">
                 <Text size="xs" c="dimmed">Kapasitas Maks:</Text>
-                <Text size="xs" fw={600}>{warehouse.capacity.toLocaleString()} Kg</Text>
+                <Text size="xs" fw={600}>{(warehouse.capacity ?? 0).toLocaleString()} Kg</Text>
               </Group>
               <Group justify="space-between" mt="xs">
                 <Text size="xs" c="dimmed">Utilisasi Ruang:</Text>
                 <Text size="xs" fw={700} c="violet">
-                  {Math.round((totalQty / warehouse.capacity) * 100)}% ({totalQty.toLocaleString()} / {warehouse.capacity.toLocaleString()} Kg)
+                  {warehouse.capacity ? Math.round((totalQty / warehouse.capacity) * 100) : 0}% ({totalQty.toLocaleString()} / {(warehouse.capacity ?? 0).toLocaleString()} Kg)
                 </Text>
               </Group>
               <Group justify="space-between" mt="xs">

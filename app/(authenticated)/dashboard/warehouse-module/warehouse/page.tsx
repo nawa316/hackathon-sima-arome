@@ -410,7 +410,7 @@ export default function WarehousesPage() {
                       <Table.Tr key={wh.id}>
                         <Table.Td>
                           <Badge color="violet" variant="light" size="md">
-                            {wh.code}
+                            {wh.code ?? ''}
                           </Badge>
                         </Table.Td>
                         <Table.Td>
@@ -421,7 +421,7 @@ export default function WarehousesPage() {
                         </Table.Td>
                         <Table.Td>
                           <Text size="sm" fw={500}>
-                            {wh.capacity.toLocaleString()} Kg
+                            {(wh.capacity ?? 0).toLocaleString()} Kg
                           </Text>
                         </Table.Td>
                         <Table.Td>
@@ -431,10 +431,10 @@ export default function WarehousesPage() {
                         </Table.Td>
                         <Table.Td>
                           <Badge
-                            color={wh.status === 'ACTIVE' ? 'teal' : 'red'}
+                            color={(wh.status ?? 'ACTIVE') === 'ACTIVE' ? 'teal' : 'red'}
                             variant="light"
                           >
-                            {wh.status === 'ACTIVE' ? 'Aktif' : 'Nonaktif'}
+                            {(wh.status ?? 'ACTIVE') === 'ACTIVE' ? 'Aktif' : 'Nonaktif'}
                           </Badge>
                         </Table.Td>
                         <Table.Td>
