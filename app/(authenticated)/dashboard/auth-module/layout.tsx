@@ -91,21 +91,19 @@ export default function DashboardLayoutWrapper({
         id: 'dashboard',
         label: 'Dashboard',
         icon: <IconLayoutDashboard size={20} />,
-        href: '/dashboard',
+        href: '/dashboard/auth-module',
       },
       {
         id: 'role-management',
-        label: 'Role Management',
+        label: 'Roles',
         icon: <IconShieldLock size={20} />,
-        href: '/dashboard/roles',
-        badge: '3',
+        href: '/dashboard/auth-module/roles',
       },
       {
         id: 'user-management',
-        label: 'User Management',
+        label: 'Users',
         icon: <IconUsers size={20} />,
-        href: '/dashboard/users',
-        badge: '12',
+        href: '/dashboard/auth-module/users',
       },
     ];
 
@@ -121,7 +119,6 @@ export default function DashboardLayoutWrapper({
   };
 
   const handleLogout = async () => {
-    // TODO: Implement logout logic with auth API
     router.push('/login');
   };
 

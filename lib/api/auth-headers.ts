@@ -66,3 +66,9 @@ export function getDaasUrl(): string {
 
   return url.replace(/\/$/, '');
 }
+
+/**
+ * Alias for getDaasUrl with different casing.
+ */
+export const getDaaSUrl = getDaasUrl;
+
