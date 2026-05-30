@@ -50,6 +50,7 @@
     "@tiptap/react": "^3.23.6",
     "@tiptap/starter-kit": "^3.23.6",
     "axios": "^1.16.1",
+    "bcryptjs": "^3.0.3",
     "clsx": "^2.0.0",
     "dayjs": "^1.11.21",
     "highlight.js": "^11.11.1",
@@ -62,6 +63,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
+    "@types/bcryptjs": "^3.0.0",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
