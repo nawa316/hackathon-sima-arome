@@ -1,6 +1,7 @@
 'use client';
 
-import { Container, Paper, SimpleGrid, Stack, Text, Title, Group, RingProgress, Button } from '@mantine/core';
+import React from 'react';
+import { Container, Paper, SimpleGrid, Stack, Text, Title, Group, Button } from '@mantine/core';
 import { IconTrendingUp, IconUsers, IconFileText } from '@tabler/icons-react';
 import { useSetModuleTitle } from '@/lib/hooks/useSetModuleTitle';
 
