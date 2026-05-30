@@ -5,6 +5,7 @@ import {
   IconLayoutDashboard,
   IconBuildingWarehouse,
   IconPackages,
+  IconArrowLeft,
 } from '@tabler/icons-react';
 import {
   DashboardLayout,
@@ -39,6 +40,12 @@ export default function WarehouseModuleLayout({
   const menuItems = useMemo<DashboardMenuItem[]>(() => {
     const scmMenuItems = [
       {
+        id: 'back-to-modules',
+        label: 'Back to Modules',
+        icon: <IconArrowLeft size={20} />,
+        href: '/dashboard',
+      },
+      {
         id: 'dashboard',
         label: 'Dashboard SCM',
         icon: <IconLayoutDashboard size={20} />,
@@ -60,9 +67,9 @@ export default function WarehouseModuleLayout({
 
     return scmMenuItems.map((item) => {
       // Active if exact match or if current path starts with this href (for detail sub-pages)
-      // Except for dashboard, which should match exactly to prevent highlight on sub-pages
+      // Except for dashboard and back-to-modules, which should match exactly to prevent highlight on sub-pages
       const isActive =
-        item.id === 'dashboard'
+        item.id === 'dashboard' || item.id === 'back-to-modules'
           ? pathname === item.href
           : pathname.startsWith(item.href);
 

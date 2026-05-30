@@ -5,6 +5,7 @@ import {
   IconLayoutDashboard,
   IconClipboardCheck,
   IconAward,
+  IconArrowLeft,
 } from '@tabler/icons-react';
 import {
   DashboardLayout,
@@ -39,6 +40,12 @@ export default function QualityControlLayout({
   const menuItems = useMemo<DashboardMenuItem[]>(() => {
     const qcMenuItems = [
       {
+        id: 'back-to-modules',
+        label: 'Back to Modules',
+        icon: <IconArrowLeft size={20} />,
+        href: '/dashboard',
+      },
+      {
         id: 'dashboard',
         label: 'QC Dashboard',
         icon: <IconLayoutDashboard size={20} />,
@@ -60,9 +67,9 @@ export default function QualityControlLayout({
 
     return qcMenuItems.map((item) => {
       // Active if exact match or if current path starts with this href (for list items & details)
-      // Except for dashboard, which should match exactly to prevent highlight on sub-pages
+      // Except for dashboard and back-to-modules, which should match exactly to prevent highlight on sub-pages
       const isActive =
-        item.id === 'dashboard'
+        item.id === 'dashboard' || item.id === 'back-to-modules'
           ? pathname === item.href
           : pathname.startsWith(item.href);
 
