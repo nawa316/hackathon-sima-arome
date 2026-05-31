@@ -352,6 +352,80 @@ export function useAllProducts() {
 }
 
 // ────────────────────────────────────────────────────────────
+// Helper: Recipe list per product (untuk auto-fill materials)
+// ────────────────────────────────────────────────────────────
+
+export function useProductRecipes(productId: string) {
+  const [recipes, setRecipes] = useState<{ id: string; raw_material_id: string; quantity: number }[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!productId) {
+      setRecipes([]);
+      return;
+    }
+    const fetch_ = async () => {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams({
+          'filter[products_id][_eq]': productId,
+          limit: '200',
+        });
+        const res = await fetch(`${BASE}/recipe?${params}`);
+        const json = await res.json();
+        setRecipes(json.data ?? []);
+      } catch {
+        setRecipes([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetch_();
+  }, [productId]);
+
+  return { recipes, loading };
+}
+
+// ────────────────────────────────────────────────────────────
+// Bulk create production materials (dari recipe)
+// ────────────────────────────────────────────────────────────
+
+export function useBulkCreateProductionMaterial() {
+  const [loading, setLoading] = useState(false);
+
+  const bulkCreate = useCallback(
+    async (items: { production_id: string; raw_material_id: string; quantity_used: number }[]) => {
+      setLoading(true);
+      try {
+        const results = await Promise.all(
+          items.map((item) =>
+            fetch(`${BASE}/productions_materials`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(item),
+            }).then(async (res) => {
+              const json = await res.json();
+              if (!res.ok) {
+                throw new Error(
+                  json.error || json.message || (json.errors && json.errors[0]?.message) || `Failed to create material (${res.status})`
+                );
+              }
+              return json;
+            })
+          )
+        );
+        return results;
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
+  return { bulkCreate, loading };
+}
+
+// ────────────────────────────────────────────────────────────
 // Helper: Phases list (for select in production phase)
 // ────────────────────────────────────────────────────────────
 
