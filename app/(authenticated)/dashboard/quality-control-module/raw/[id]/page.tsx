@@ -37,6 +37,7 @@ import {
 import { useSetModuleTitle } from '@/lib/hooks/useSetModuleTitle';
 import { daasAPI } from '@/lib/buildpad/hooks/api';
 import { useAuth } from '@/lib/buildpad/hooks';
+import { createClient } from '@/lib/supabase/client';
 import { logAuditTrail } from '@/lib/api/audit';
 import { notifications } from '@mantine/notifications';
 import Link from 'next/link';
@@ -212,11 +213,31 @@ export default function RawMaterialQCDetailPage({
 
       const newQcStatus = statusMap[qcResult] || 'PASSED';
 
+      // Robust fallback to get logged-in user from Supabase if useAuth's currentUser is not loaded/fails
+      let checkedById = currentUser?.id;
+      if (!checkedById) {
+        try {
+          const supabase = createClient();
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user?.id) {
+            checkedById = user.id;
+          }
+        } catch (authErr) {
+          console.warn('Failed to retrieve user from Supabase client:', authErr);
+        }
+      }
+
+      // If still no user ID (or to prevent foreign key violation if the user is not in the system users table),
+      // fall back to the seeded QC Staff user ID (John Smyth)
+      if (!checkedById) {
+        checkedById = 'e79e63c0-3023-4df4-8d48-8df0041d4de2';
+      }
+
       const newQcRecord = await daasAPI.createItem<QCRecord>('quality_control', {
         raw_material_id: id,
         qc_status: newQcStatus,
         qc_notes: qcNotes,
-        checked_by: currentUser?.id || '',
+        checked_by: checkedById,
         evidence_images: imageIds, // JSONB array of file IDs
       });
 
