@@ -28,25 +28,24 @@ import {
 } from '@tabler/icons-react';
 import { useSetModuleTitle } from '@/lib/hooks/useSetModuleTitle';
 import { useRouter } from 'next/navigation';
-import type { ProductStock, Product, Warehouse } from '@/types/sima-arome';
+import type { RawMaterial, Warehouse } from '@/types/sima-arome';
 
-// Standard finished product categories preset
+// Categories preset based on fragrance manufacturing materials
 const CATEGORY_PRESETS = [
   { value: 'ALL', label: 'All Categories' },
-  { value: 'Fragrance', label: 'Fragrance' },
   { value: 'Essential Oil', label: 'Essential Oil' },
-  { value: 'Aromatic Chemical', label: 'Aromatic Chemical' },
-  { value: 'Natural Extract', label: 'Natural Extract' },
+  { value: 'Fixative', label: 'Fixative' },
+  { value: 'Solvent', label: 'Solvent' },
+  { value: 'Absolutes', label: 'Absolutes & Resins' },
 ];
 
-export default function ProductStockManagementPage() {
-  useSetModuleTitle('Product Stock');
+export default function RawMaterialStockPage() {
+  useSetModuleTitle('Raw Material Stock');
   const router = useRouter();
 
   // State Management
   const [loading, setLoading] = useState(true);
-  const [productStocks, setProductStocks] = useState<ProductStock[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [materials, setMaterials] = useState<RawMaterial[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,26 +60,23 @@ export default function ProductStockManagementPage() {
       setLoading(true);
       setError(null);
 
-      const [psRes, prodRes, whRes] = await Promise.all([
-        fetch('/api/items/product_stocks'),
-        fetch('/api/items/products'),
+      const [rmRes, whRes] = await Promise.all([
+        fetch('/api/items/raw_materials'),
         fetch('/api/items/warehouses'),
       ]);
 
-      if (!psRes.ok || !prodRes.ok || !whRes.ok) {
-        throw new Error('Failed to load finished product stock data from the DaaS server.');
+      if (!rmRes.ok || !whRes.ok) {
+        throw new Error('Failed to load inventory data from the DaaS server.');
       }
 
-      const psJson = await psRes.json();
-      const prodJson = await prodRes.json();
+      const rmJson = await rmRes.json();
       const whJson = await whRes.json();
 
-      setProductStocks(Array.isArray(psJson.data) ? psJson.data : (Array.isArray(psJson) ? psJson : []));
-      setProducts(Array.isArray(prodJson.data) ? prodJson.data : (Array.isArray(prodJson) ? prodJson : []));
+      setMaterials(Array.isArray(rmJson.data) ? rmJson.data : (Array.isArray(rmJson) ? rmJson : []));
       setWarehouses(Array.isArray(whJson.data) ? whJson.data : (Array.isArray(whJson) ? whJson : []));
     } catch (err) {
       console.error(err);
-      setError('Failed to synchronize finished product stock data. Please check the DaaS backend connection.');
+      setError('Failed to synchronize stock data. Please check the DaaS backend connection.');
     } finally {
       setLoading(false);
     }
@@ -90,70 +86,82 @@ export default function ProductStockManagementPage() {
     fetchData();
   }, []);
 
+  // Map category dynamically based on material name (mock mapping for rich visualization)
+  const getItemCategory = (name: string): string => {
+    const lowerName = name.toLowerCase();
+    if (lowerName.includes('oil') || lowerName.includes('atsiri') || lowerName.includes('lavender') || lowerName.includes('cendana') || lowerName.includes('rose')) {
+      return 'Essential Oil';
+    }
+    if (lowerName.includes('fix') || lowerName.includes('musk') || lowerName.includes('amber')) {
+      return 'Fixative';
+    }
+    if (lowerName.includes('ethanol') || lowerName.includes('alcohol') || lowerName.includes('pelarut')) {
+      return 'Solvent';
+    }
+    return 'Absolutes';
+  };
+
   // Determine stock status and label dynamically
-  const getStockStatus = (qty: number) => {
+  const getStockStatus = (item: RawMaterial) => {
+    const qty = Number(item.weight_kg || 0);
+
+    // Prioritise Out of Stock first
     if (qty <= 0) {
       return { label: 'Out of Stock', color: 'red' };
     }
-    if (qty < 50) {
+
+    // Next, check QC Rejection
+    if (item.status === 'QC_REJECTED') {
+      return { label: 'Rejected QC', color: 'red' };
+    }
+
+    // Check QC Pending
+    if (item.status === 'PENDING_QC') {
+      return { label: 'Pending QC', color: 'orange' };
+    }
+
+    // Check Low Stock
+    if (qty < 100) {
       return { label: 'Low Stock', color: 'orange' };
     }
-    return { label: 'Available (Safe)', color: 'teal' };
+
+    // Otherwise standard Available / Accepted QC
+    if (item.status === 'QC_ACCEPTED') {
+      return { label: 'Available (QC Accepted)', color: 'teal' };
+    }
+
+    return { label: 'Available', color: 'teal' };
   };
 
-  // Perform client-side join and filtering
-  const joinedStocks = productStocks.map((stock) => {
-    const matchedProduct = products.find((p) => p.id === stock.product_id);
-    const matchedWarehouse = warehouses.find((w) => w.id === stock.warehouse_id);
-
-    return {
-      ...stock,
-      productDetail: matchedProduct || {
-        id: stock.product_id,
-        type: 'Unknown Product',
-        categories: 'Fragrance',
-        price: 0,
-      },
-      warehouseDetail: matchedWarehouse || {
-        id: stock.warehouse_id,
-        name: 'Unknown Warehouse',
-        code: 'N/A',
-        capacity: 0,
-        status: 'INACTIVE' as const,
-        location: 0,
-        created_at: '',
-      },
-    };
-  });
-
-  const filteredStocks = joinedStocks.filter((item) => {
-    const productName = item.productDetail.type.toLowerCase();
-    const productCode = item.product_id.substring(0, 8).toLowerCase();
+  // Filter materials
+  const filteredMaterials = materials.filter((item) => {
     const matchesSearch =
-      productName.includes(searchTerm.toLowerCase()) ||
-      productCode.includes(searchTerm.toLowerCase());
+      item.material_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.batch_code.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesWarehouse =
       warehouseFilter === 'ALL' || item.warehouse_id === warehouseFilter;
 
+    const category = getItemCategory(item.material_name);
     const matchesCategory =
-      categoryFilter === 'ALL' || item.productDetail.categories === categoryFilter;
+      categoryFilter === 'ALL' || category === categoryFilter;
 
-    const qty = Number(item.amount || 0);
-    const statusObj = getStockStatus(qty);
+    const statusObj = getStockStatus(item);
     const matchesStatus =
+      !statusFilter ||
       statusFilter === 'ALL' ||
-      statusObj.label.toLowerCase().includes(statusFilter?.toLowerCase() || '');
+      statusObj.label.toLowerCase().includes(statusFilter.toLowerCase()) ||
+      item.status === statusFilter;
 
     return matchesSearch && matchesWarehouse && matchesCategory && matchesStatus;
   });
 
-  if (loading && productStocks.length === 0) {
+  if (loading && materials.length === 0) {
     return (
       <Container size="xl" py="xl">
         <Stack align="center" justify="center" style={{ minHeight: '50vh' }}>
           <Loader size="xl" color="violet" />
-          <Text c="dimmed">Connecting to product stock DaaS...</Text>
+          <Text c="dimmed">Connecting to stock inventory DaaS...</Text>
         </Stack>
       </Container>
     );
@@ -166,9 +174,9 @@ export default function ProductStockManagementPage() {
         <Group justify="space-between" align="flex-end">
           <div>
             <Title order={1} style={{ fontFamily: 'var(--ds-font-display, inherit)', fontWeight: 700 }}>
-              Finished Product Stock Management
+              Raw Material Stock Management
             </Title>
-            <Text c="dimmed">Monitor finished fragrance stock volumes, safety thresholds, and packaging distribution</Text>
+            <Text c="dimmed">Monitor raw material stock availability, safety thresholds, and quality control integration</Text>
           </div>
         </Group>
 
@@ -188,7 +196,7 @@ export default function ProductStockManagementPage() {
             
             <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md">
               <TextInput
-                placeholder="Search product name or code..."
+                placeholder="Search material name or batch code..."
                 leftSection={<IconSearch size={16} />}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.currentTarget.value)}
@@ -205,7 +213,7 @@ export default function ProductStockManagementPage() {
               />
 
               <Select
-                placeholder="Product Category"
+                placeholder="Material Category"
                 data={CATEGORY_PRESETS}
                 value={categoryFilter}
                 onChange={setCategoryFilter}
@@ -218,6 +226,9 @@ export default function ProductStockManagementPage() {
                   { value: 'Available', label: 'Available' },
                   { value: 'Low Stock', label: 'Low Stock' },
                   { value: 'Out of Stock', label: 'Out of Stock' },
+                  { value: 'PENDING_QC', label: 'Pending QC' },
+                  { value: 'QC_ACCEPTED', label: 'QC Accepted' },
+                  { value: 'QC_REJECTED', label: 'QC Rejected' },
                 ]}
                 value={statusFilter}
                 onChange={setStatusFilter}
@@ -228,12 +239,12 @@ export default function ProductStockManagementPage() {
 
         {/* Stock List Table */}
         <Paper p="lg" radius="md" withBorder>
-          {filteredStocks.length === 0 ? (
+          {filteredMaterials.length === 0 ? (
             <Stack align="center" py="xl" gap="xs">
               <IconPackages size={48} color="dimmed" />
-              <Text fw={600}>Product Stock Not Found</Text>
+              <Text fw={600}>Stock Not Found</Text>
               <Text size="sm" c="dimmed">
-                No stored finished products match your search filter criteria.
+                No stored materials match your search filter criteria.
               </Text>
             </Stack>
           ) : (
@@ -241,8 +252,8 @@ export default function ProductStockManagementPage() {
               <Table striped highlightOnHover verticalSpacing="sm">
                 <Table.Thead>
                   <Table.Tr>
-                    <Table.Th style={{ width: 150 }}>Product Code</Table.Th>
-                    <Table.Th>Product Name</Table.Th>
+                    <Table.Th style={{ width: 150 }}>Batch Code</Table.Th>
+                    <Table.Th>Raw Material Name</Table.Th>
                     <Table.Th style={{ width: 160 }}>Category</Table.Th>
                     <Table.Th>Warehouse Location</Table.Th>
                     <Table.Th style={{ width: 140 }}>Quantity</Table.Th>
@@ -252,23 +263,22 @@ export default function ProductStockManagementPage() {
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
-                  {filteredStocks.map((item) => {
-                    const warehouseName = item.warehouseDetail.name;
-                    const productName = item.productDetail.type;
-                    const category = item.productDetail.categories;
-                    const qty = Number(item.amount || 0);
-                    const status = getStockStatus(qty);
-                    const productCode = item.product_id.substring(0, 8).toUpperCase();
+                  {filteredMaterials.map((item) => {
+                    const whObj = warehouses.find(w => w.id === item.warehouse_id);
+                    const warehouseName = whObj ? whObj.name : 'Unknown Warehouse';
+                    const category = getItemCategory(item.material_name);
+                    const qty = Number(item.weight_kg || 0);
+                    const status = getStockStatus(item);
 
                     return (
                       <Table.Tr key={item.id}>
                         <Table.Td>
                           <Badge color="violet" variant="light" size="sm">
-                            {productCode}
+                            {item.batch_code}
                           </Badge>
                         </Table.Td>
                         <Table.Td>
-                          <Text fw={600} size="sm">{productName}</Text>
+                          <Text fw={600} size="sm">{item.material_name}</Text>
                         </Table.Td>
                         <Table.Td>
                           <Badge color="indigo" variant="outline" size="xs">
@@ -282,12 +292,12 @@ export default function ProductStockManagementPage() {
                           </Group>
                         </Table.Td>
                         <Table.Td>
-                          <Text size="sm" fw={700} c={qty < 50 ? (qty <= 0 ? 'red' : 'orange') : 'teal'}>
+                          <Text size="sm" fw={700} c={qty < 100 ? (qty <= 0 ? 'red' : 'orange') : 'teal'}>
                             {qty.toLocaleString()}
                           </Text>
                         </Table.Td>
                         <Table.Td>
-                          <Text size="sm" c="dimmed">Units</Text>
+                          <Text size="sm" c="dimmed">Kg</Text>
                         </Table.Td>
                         <Table.Td>
                           <Badge color={status.color} variant="filled" size="xs">
@@ -295,11 +305,11 @@ export default function ProductStockManagementPage() {
                           </Badge>
                         </Table.Td>
                         <Table.Td>
-                          <Tooltip label="View Stock Card">
+                          <Tooltip label="View Stock Card & QC">
                             <ActionIcon
                               variant="light"
                               color="blue"
-                              onClick={() => router.push(`/dashboard/warehouse-module/product/${item.id}`)}
+                              onClick={() => router.push(`/dashboard/warehouse-module/raw-material/${item.id}`)}
                             >
                               <IconEye size={16} />
                             </ActionIcon>

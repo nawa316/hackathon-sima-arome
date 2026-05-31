@@ -16,8 +16,11 @@ import {
   Alert,
   Divider,
   Timeline,
+  TextInput,
   Textarea,
   Modal,
+  Select,
+  NumberInput,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
@@ -25,35 +28,34 @@ import {
   IconPackages,
   IconAlertTriangle,
   IconCheck,
-  IconX,
   IconBuildingWarehouse,
-  IconCalendar,
-  IconUser,
   IconActivity,
   IconClipboardCheck,
-  IconClock,
+  IconPlus,
+  IconEdit,
 } from '@tabler/icons-react';
 import { useSetModuleTitle } from '@/lib/hooks/useSetModuleTitle';
 import { useRouter } from 'next/navigation';
-import type { RawMaterial, Warehouse, StockMovement, QualityControl } from '@/types/sima-arome';
+import type { ProductStock, Product, Warehouse, StockMovement } from '@/types/sima-arome';
 
-export default function StockDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default function ProductStockDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  useSetModuleTitle('Stock Detail');
+  useSetModuleTitle('Product Stock Detail');
   const router = useRouter();
 
   // State Management
   const [loading, setLoading] = useState(true);
-  const [material, setMaterial] = useState<RawMaterial | null>(null);
-  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [stock, setStock] = useState<ProductStock | null>(null);
+  const [product, setProduct] = useState<Product | null>(null);
+  const [warehouse, setWarehouse] = useState<Warehouse | null>(null);
   const [movements, setMovements] = useState<StockMovement[]>([]);
-  const [qcRecord, setQcRecord] = useState<QualityControl | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // QC inspection form
-  const [qcModalOpened, setQcModalOpened] = useState(false);
-  const [qcDecision, setQcDecision] = useState<'PASSED' | 'FAILED' | null>(null);
-  const [qcNotes, setQcNotes] = useState('');
+  // Adjustment Modal Form State
+  const [adjustModalOpened, setAdjustModalOpened] = useState(false);
+  const [adjustType, setAdjustType] = useState<string | null>('STOCK_IN');
+  const [adjustQty, setAdjustQty] = useState<number | string>(10);
+  const [adjustNotes, setAdjustNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const fetchStockDetails = async () => {
@@ -61,39 +63,38 @@ export default function StockDetailPage({ params }: { params: Promise<{ id: stri
       setLoading(true);
       setError(null);
 
-      // Fetch stock item (raw material)
-      const matRes = await fetch(`/api/items/raw_materials/${id}`);
-      if (!matRes.ok) throw new Error('Stock item not found');
-      const matData = await matRes.json();
-      const matObj: RawMaterial = matData.data || matData;
-      setMaterial(matObj);
+      // 1. Fetch product stock record
+      const stockRes = await fetch(`/api/items/product_stocks/${id}`);
+      if (!stockRes.ok) throw new Error('Product stock record not found');
+      const stockData = await stockRes.json();
+      const stockObj: ProductStock = stockData.data || stockData;
+      setStock(stockObj);
 
-      // Fetch warehouses for joins
-      const whRes = await fetch('/api/items/warehouses');
-      if (whRes.ok) {
-        const whJson = await whRes.json();
-        setWarehouses(Array.isArray(whJson.data) ? whJson.data : (Array.isArray(whJson) ? whJson : []));
+      // 2. Fetch corresponding product and warehouse metadata
+      const smFilter = encodeURIComponent(JSON.stringify({ product_stock_id: { _eq: id } }));
+      const [prodRes, whRes, smRes] = await Promise.all([
+        fetch(`/api/items/products/${stockObj.product_id}`),
+        fetch(`/api/items/warehouses/${stockObj.warehouse_id}`),
+        fetch(`/api/items/stock_movements?filter=${smFilter}`),
+      ]);
+
+      if (prodRes.ok) {
+        const prodData = await prodRes.json();
+        setProduct(prodData.data || prodData);
       }
 
-      // Fetch stock movement history
-      const smRes = await fetch(`/api/items/stock_movements?raw_material_id=${id}`);
+      if (whRes.ok) {
+        const whData = await whRes.json();
+        setWarehouse(whData.data || whData);
+      }
+
       if (smRes.ok) {
         const smJson = await smRes.json();
         setMovements(Array.isArray(smJson.data) ? smJson.data : (Array.isArray(smJson) ? smJson : []));
       }
-
-      // Fetch quality control inspection if exists
-      const qcRes = await fetch(`/api/items/quality_control?raw_material_id=${id}`);
-      if (qcRes.ok) {
-        const qcJson = await qcRes.json();
-        const qcList = Array.isArray(qcJson.data) ? qcJson.data : (Array.isArray(qcJson) ? qcJson : []);
-        if (qcList.length > 0) {
-          setQcRecord(qcList[0]);
-        }
-      }
     } catch (err) {
       console.error(err);
-      setError('Failed to load stock inventory details from the DaaS database.');
+      setError('Failed to load finished product stock details from the DaaS database.');
     } finally {
       setLoading(false);
     }
@@ -103,81 +104,87 @@ export default function StockDetailPage({ params }: { params: Promise<{ id: stri
     fetchStockDetails();
   }, [id]);
 
-  // Handle QC Inspection Decisions
-  const handleQcSubmit = async () => {
-    if (!material || !qcDecision) return;
+  // Handle Inventory Adjustments
+  const handleAdjustmentSubmit = async () => {
+    if (!stock || !adjustType || adjustQty === '') return;
     try {
       setSubmitting(true);
+      const qtyNum = Number(adjustQty);
+      const currentQty = Number(stock.amount || 0);
+      let newAmount = currentQty;
 
-      const targetStatus = qcDecision === 'PASSED' ? 'QC_ACCEPTED' : 'QC_REJECTED';
-      
-      // 1. Update status on Raw Materials table
-      const matUpdate = await fetch(`/api/items/raw_materials/${id}`, {
+      if (adjustType === 'STOCK_IN') {
+        newAmount = currentQty + qtyNum;
+      } else if (adjustType === 'STOCK_OUT') {
+        if (qtyNum > currentQty) {
+          notifications.show({
+            title: 'Invalid Quantity',
+            message: 'Cannot deduct more than currently stored stock amount.',
+            color: 'red',
+          });
+          setSubmitting(false);
+          return;
+        }
+        newAmount = currentQty - qtyNum;
+      } else if (adjustType === 'STOCK_ADJUSTMENT') {
+        newAmount = qtyNum;
+      }
+
+      const notesText = adjustNotes.trim() || `Manual stock adjustment of ${qtyNum} units.`;
+
+      // 1. Update product_stocks table quantity
+      const stockUpdate = await fetch(`/api/items/product_stocks/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          status: targetStatus,
-          updated_at: new Date().toISOString(),
+          amount: newAmount,
         }),
       });
 
-      if (!matUpdate.ok) throw new Error('Failed to update material QC status');
+      if (!stockUpdate.ok) throw new Error('Failed to update stock quantity');
 
-      // 2. Insert record into Quality Control table
-      const qcResponse = await fetch('/api/items/quality_control', {
+      // 2. Post a record to stock_movements
+      const smResponse = await fetch('/api/items/stock_movements', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          raw_material_id: id,
-          checked_by: material.received_by, // using the initial receiver as reviewer
-          qc_status: qcDecision,
-          qc_notes: qcNotes.trim() || `Material passed standard QC testing.`,
+          product_stock_id: id,
+          activity_type: adjustType,
+          quantity: qtyNum,
+          description: notesText,
           created_at: new Date().toISOString(),
         }),
       });
 
-      if (!qcResponse.ok) throw new Error('Failed to save QC record');
+      if (!smResponse.ok) throw new Error('Failed to record stock movement');
 
-      // 3. Log stock movement for the QC Adjustment
-      const movementResponse = await fetch('/api/items/stock_movements', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          raw_material_id: id,
-          activity_type: 'STOCK_ADJUSTMENT',
-          quantity: Number(material.weight_kg),
-          description: `Quality Control (QC) completed. Result: ${qcDecision === 'PASSED' ? 'PASSED (QC_ACCEPTED)' : 'REJECTED (QC_REJECTED)'}. Notes: ${qcNotes.trim()}`,
-          created_at: new Date().toISOString(),
-          created_by: material.received_by,
-        }),
-      });
-
-      // 4. Create Audit Trail
+      // 3. Post audit trail
       await fetch('/api/items/audit_trails', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'Stock Status Updated',
-          target_table: 'raw_materials',
+          action: 'Stock Level Adjusted',
+          target_table: 'product_stocks',
           record_id: id,
-          new_data: JSON.stringify({ status: targetStatus, qc: qcDecision }),
+          new_data: JSON.stringify({ adjust_type: adjustType, amount: newAmount }),
         }),
       });
 
       notifications.show({
-        title: 'QC Completed',
-        message: `QC inspection for Batch ${material.batch_code} has been successfully recorded!`,
-        color: qcDecision === 'PASSED' ? 'teal' : 'red',
+        title: 'Adjustment Successful',
+        message: `Inventory stock has been adjusted successfully to ${newAmount} units!`,
+        color: 'teal',
       });
 
-      setQcModalOpened(false);
-      setQcNotes('');
+      setAdjustModalOpened(false);
+      setAdjustNotes('');
+      setAdjustQty(10);
       fetchStockDetails();
     } catch (err) {
       console.error(err);
       notifications.show({
         title: 'Error',
-        message: 'Failed to update QC status. Please check your data connection.',
+        message: 'Failed to save stock adjustment details. Please check your data connection.',
         color: 'red',
       });
     } finally {
@@ -185,13 +192,7 @@ export default function StockDetailPage({ params }: { params: Promise<{ id: stri
     }
   };
 
-  const openQcModal = (decision: 'PASSED' | 'FAILED') => {
-    setQcDecision(decision);
-    setQcNotes(decision === 'PASSED' ? 'Material passed organoleptic aroma and density testing.' : 'Material has aroma defects / liquid contamination.');
-    setQcModalOpened(true);
-  };
-
-  if (loading) {
+  if (loading && !stock) {
     return (
       <Container size="xl" py="xl">
         <Stack align="center" justify="center" style={{ minHeight: '50vh' }}>
@@ -202,7 +203,7 @@ export default function StockDetailPage({ params }: { params: Promise<{ id: stri
     );
   }
 
-  if (error || !material) {
+  if (error || !stock) {
     return (
       <Container size="xl" py="xl">
         <Stack gap="md">
@@ -222,55 +223,26 @@ export default function StockDetailPage({ params }: { params: Promise<{ id: stri
     );
   }
 
-  // Joins
-  const warehouseObj = warehouses.find(w => w.id === material.warehouse_id);
-  const warehouseName = warehouseObj ? warehouseObj.name : 'Unknown Warehouse';
+  const productName = product ? product.type : 'Finished Good Product';
+  const productCategory = product ? product.categories : 'Fragrance';
+  const productPrice = product ? product.price : 0;
+  const warehouseName = warehouse ? warehouse.name : 'Unknown Warehouse';
+  const qty = Number(stock.amount || 0);
 
-  const qty = Number(material.weight_kg || 0);
+  // Availability status color
+  const statusColor = qty <= 0 ? 'red' : qty < 50 ? 'orange' : 'teal';
+  const statusText = qty <= 0 ? 'Out of Stock' : qty < 50 ? 'Low Stock' : 'Available (Safe)';
 
-  // Category mapping
-  const lowerName = material.material_name.toLowerCase();
-  const category = (lowerName.includes('oil') || lowerName.includes('atsiri') || lowerName.includes('lavender')) 
-    ? 'Essential Oil' 
-    : (lowerName.includes('fix') ? 'Fixative' : 'Solvent');
-
-  // Dates (Simulated as requested)
-  const productionDate = new Date(new Date(material.received_at).getTime() - 1000 * 60 * 60 * 24 * 5).toLocaleDateString('en-US', { dateStyle: 'medium' });
-  const expiredDate = new Date(new Date(material.received_at).getTime() + 1000 * 60 * 60 * 24 * 365).toLocaleDateString('en-US', { dateStyle: 'medium' });
-
-  // Map stock status and timeline state
-  let currentActiveTimeline = 0;
-  let qcStatusLabel = 'Pending QC';
-  let qcColor = 'orange';
-
-  if (material.status === 'PENDING_QC') {
-    currentActiveTimeline = 1;
-    qcStatusLabel = 'Pending QC (Awaiting Inspection)';
-    qcColor = 'orange';
-  } else if (material.status === 'QC_ACCEPTED') {
-    currentActiveTimeline = 3;
-    qcStatusLabel = 'QC Accepted';
-    qcColor = 'teal';
-  } else if (material.status === 'QC_REJECTED') {
-    currentActiveTimeline = 3;
-    qcStatusLabel = 'QC Rejected';
-    qcColor = 'red';
-  } else if (material.status === 'IN_PRODUCTION') {
-    currentActiveTimeline = 3;
-    qcStatusLabel = 'In Production';
-    qcColor = 'blue';
-  }
-
-  // Unified movements
-  const listMovements = movements.length > 0 
-    ? movements 
+  // Chronological list of movements
+  const listMovements = movements.length > 0
+    ? movements
     : [
         {
           id: 'mov-init',
           activity_type: 'STOCK_IN' as const,
           quantity: qty,
-          description: `Initial receipt of raw material Batch ${material.batch_code} at ${warehouseName}.`,
-          created_at: material.received_at,
+          description: `Initial finished goods receipt recorded in the warehouse database.`,
+          created_at: new Date().toISOString(),
         }
       ];
 
@@ -285,7 +257,7 @@ export default function StockDetailPage({ params }: { params: Promise<{ id: stri
             color="violet"
             onClick={() => router.push('/dashboard/warehouse-module/product')}
           >
-            Back to Stock List
+            Back to Product List
           </Button>
         </Group>
 
@@ -297,49 +269,59 @@ export default function StockDetailPage({ params }: { params: Promise<{ id: stri
             </Paper>
             <div>
               <Title order={1} style={{ fontFamily: 'var(--ds-font-display, inherit)', fontWeight: 700 }}>
-                {material.material_name}
+                {productName}
               </Title>
-              <Text size="sm" c="dimmed">Batch Code: <strong>{material.batch_code}</strong></Text>
+              <Text size="sm" c="dimmed">Product Code: <strong>{stock.product_id.substring(0, 8).toUpperCase()}</strong></Text>
             </div>
           </Group>
-          <Badge size="lg" color={qcColor} variant="filled">
-            {qcStatusLabel}
+          <Badge size="lg" color={statusColor} variant="filled">
+            {statusText}
           </Badge>
         </Group>
 
-        {/* Business Rules Alerts */}
-        {material.status === 'QC_REJECTED' && (
-          <Alert icon={<IconAlertTriangle size={16} />} title="Material Rejected by Quality Control" color="red" variant="filled">
-            This raw material is declared as <strong>REJECTED QC</strong>. In accordance with Sima Arôme's business rules, this material <strong>must not be used</strong> in fragrance production recipe formulations and must be immediately marked for disposal or vendor return.
+        {/* Business Rule Alerts */}
+        {qty <= 0 && (
+          <Alert icon={<IconAlertTriangle size={16} />} title="Out of Stock - Immediate Action Required" color="red" variant="filled">
+            This finished product has an empty inventory! Formulations or bottling schedules must be initiated in the production module.
           </Alert>
         )}
-        {material.status === 'PENDING_QC' && (
-          <Alert icon={<IconAlertTriangle size={16} />} title="Quality Control Inspection Required" color="orange">
-            This raw material is currently in <strong>PENDING QC</strong> status. Physical inspection and laboratory aroma testing are required before the material is allowed into the compounding production tank.
+        {qty > 0 && qty < 50 && (
+          <Alert icon={<IconAlertTriangle size={16} />} title="Low Stock Warning Threshold Triggered" color="orange">
+            This finished product is below the minimum safety threshold (50 units). Please trigger production replenishment schedules.
           </Alert>
         )}
-        {material.status === 'QC_ACCEPTED' && (
-          <Alert icon={<IconCheck size={16} />} title="Material Ready for Use" color="teal">
-            This raw material has a <strong>QC ACCEPTED</strong> status. The material is in prime condition and is 100% approved for use in fragrance compounding and maceration production recipes.
+        {qty >= 50 && (
+          <Alert icon={<IconCheck size={16} />} title="Stock Level Stable" color="teal">
+            The current finished product inventory level is in prime stable condition and fully capable of satisfying distribution orders.
           </Alert>
         )}
 
-        {/* Info Grid */}
+        {/* Specifications & Info Grid */}
         <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
-          {/* Item Specifications */}
+          {/* Specifications */}
           <Paper p="xl" radius="md" withBorder>
             <Stack gap="sm">
-              <Title order={3} size="h4" style={{ fontFamily: 'var(--ds-font-display, inherit)' }}>
-                Specifications & Stock Information
-              </Title>
+              <Group justify="space-between" align="center">
+                <Title order={3} size="h4" style={{ fontFamily: 'var(--ds-font-display, inherit)' }}>
+                  Product Card Specifications
+                </Title>
+                <Button
+                  size="xs"
+                  leftSection={<IconPlus size={14} />}
+                  color="violet"
+                  onClick={() => setAdjustModalOpened(true)}
+                >
+                  Adjust Stock
+                </Button>
+              </Group>
               <Divider />
               <Group justify="space-between">
-                <Text size="sm" c="dimmed">Material Category:</Text>
-                <Badge color="indigo" variant="light">{category}</Badge>
+                <Text size="sm" c="dimmed">Product Name:</Text>
+                <Text size="sm" fw={600}>{productName}</Text>
               </Group>
               <Group justify="space-between">
-                <Text size="sm" c="dimmed">Batch Number:</Text>
-                <Text size="sm" fw={600}>{material.batch_code}</Text>
+                <Text size="sm" c="dimmed">Category:</Text>
+                <Badge color="indigo" variant="light">{productCategory}</Badge>
               </Group>
               <Group justify="space-between">
                 <Text size="sm" c="dimmed">Warehouse Location:</Text>
@@ -349,125 +331,69 @@ export default function StockDetailPage({ params }: { params: Promise<{ id: stri
                 </Group>
               </Group>
               <Group justify="space-between">
+                <Text size="sm" c="dimmed">Sale Price (IDR):</Text>
+                <Text size="sm" fw={600}>Rp {productPrice.toLocaleString('id-ID')}</Text>
+              </Group>
+              <Group justify="space-between">
                 <Text size="sm" c="dimmed">Stored Quantity:</Text>
-                <Text size="sm" fw={700} c={qty < 100 ? 'orange' : 'teal'}>
-                  {qty.toLocaleString()} Kg
+                <Text size="sm" fw={700} c={statusColor}>
+                  {qty.toLocaleString()} Units
                 </Text>
-              </Group>
-              
-              <Divider my="xs" label="Schedules & Expiration" labelPosition="center" />
-              <Group justify="space-between">
-                <Group gap="xs" c="dimmed">
-                  <IconCalendar size={14} />
-                  <Text size="xs">Production Date:</Text>
-                </Group>
-                <Text size="xs" fw={600}>{productionDate}</Text>
-              </Group>
-              <Group justify="space-between">
-                <Group gap="xs" c="dimmed">
-                  <IconCalendar size={14} />
-                  <Text size="xs">Expiration Date:</Text>
-                </Group>
-                <Text size="xs" fw={600} c="red">{expiredDate}</Text>
-              </Group>
-              <Group justify="space-between">
-                <Group gap="xs" c="dimmed">
-                  <IconUser size={14} />
-                  <Text size="xs">Received By:</Text>
-                </Group>
-                <Text size="xs" fw={600}>Sima Arôme Warehouse Staff</Text>
               </Group>
             </Stack>
           </Paper>
 
-          {/* QC Integration and Flow Tracker */}
+          {/* History Flow Visual Tracker */}
           <Paper p="xl" radius="md" withBorder>
             <Stack gap="md" align="stretch">
               <Title order={3} size="h4" style={{ fontFamily: 'var(--ds-font-display, inherit)' }}>
-                Quality Control (QC) Flow
+                Stock Movement Summary
               </Title>
               <Divider />
-              
-              <Timeline active={currentActiveTimeline} bulletSize={24} lineWidth={2}>
-                <Timeline.Item bullet={<IconCheck size={12} />} title="Stock Received">
-                  <Text size="xs" c="dimmed">Material arrived at the warehouse dock and was recorded in the system.</Text>
-                  <Text size="xxs" mt={4}>{new Date(material.received_at).toLocaleDateString('en-US', { dateStyle: 'short' })}</Text>
-                </Timeline.Item>
 
-                <Timeline.Item bullet={<IconClock size={12} />} title="Pending QC">
-                  <Text size="xs" c="dimmed">Awaiting visual physical inspection by the Quality Control team.</Text>
-                </Timeline.Item>
+              <Timeline active={0} bulletSize={24} lineWidth={2}>
+                {listMovements.slice(0, 3).map((mov, idx) => {
+                  let movIcon = <IconActivity size={12} />;
+                  let movColor = 'violet';
+                  if (mov.activity_type === 'STOCK_IN') {
+                    movColor = 'teal';
+                  } else if (mov.activity_type === 'STOCK_OUT') {
+                    movColor = 'red';
+                  }
 
-                <Timeline.Item 
-                  bullet={<IconClipboardCheck size={12} />} 
-                  title="QC Inspection"
-                  lineVariant={material.status === 'QC_REJECTED' ? 'dashed' : 'solid'}
-                >
-                  <Text size="xs" c="dimmed">Aromatic density check and quality validation.</Text>
-                </Timeline.Item>
-
-                <Timeline.Item 
-                  bullet={material.status === 'QC_REJECTED' ? <IconX size={12} /> : <IconCheck size={12} />} 
-                  title="QC Completed"
-                  color={material.status === 'QC_REJECTED' ? 'red' : 'teal'}
-                >
-                  {qcRecord ? (
-                    <Stack gap="xxs" mt="xs" bg="gray.0" p="xs" style={{ borderRadius: 4 }}>
-                      <Text size="xs" fw={700}>Inspector Notes:</Text>
-                      <Text size="xs" fs="italic" c="dimmed">"{qcRecord.qc_notes}"</Text>
-                      <Text size="xxs" c="dimmed" mt={4}>
-                        Inspected on: {new Date(qcRecord.created_at).toLocaleDateString('en-US')}
-                      </Text>
-                    </Stack>
-                  ) : (
-                    <Text size="xs" c="dimmed">Material is ready to be used or rejected.</Text>
-                  )}
-                </Timeline.Item>
+                  return (
+                    <Timeline.Item
+                      key={mov.id || idx}
+                      bullet={movIcon}
+                      color={movColor}
+                      title={mov.activity_type === 'STOCK_IN' ? 'Stock Added' : mov.activity_type === 'STOCK_OUT' ? 'Stock Dispatched' : 'Adjustment'}
+                    >
+                      <Text size="xs" c="dimmed">{mov.description}</Text>
+                      <Text size="xxs" mt={4}>{new Date(mov.created_at).toLocaleString()}</Text>
+                    </Timeline.Item>
+                  );
+                })}
               </Timeline>
-
-              {/* QC Interactive Action Buttons */}
-              {material.status === 'PENDING_QC' && (
-                <Stack mt="md" gap="xs">
-                  <Divider label="QC Inspection Decision Actions" labelPosition="center" />
-                  <Group grow>
-                    <Button
-                      leftSection={<IconCheck size={16} />}
-                      color="teal"
-                      onClick={() => openQcModal('PASSED')}
-                    >
-                      Pass QC (Approve)
-                    </Button>
-                    <Button
-                      leftSection={<IconX size={16} />}
-                      color="red"
-                      variant="outline"
-                      onClick={() => openQcModal('FAILED')}
-                    >
-                      Reject QC
-                    </Button>
-                  </Group>
-                </Stack>
-              )}
             </Stack>
           </Paper>
         </SimpleGrid>
 
-        {/* Stock Movement History Table */}
+        {/* Detailed Stock Movement History Table */}
         <Paper p="xl" radius="md" withBorder>
           <Stack gap="md">
             <Group gap="xs">
               <IconActivity size={20} color="violet" />
               <Title order={3} size="h4" style={{ fontFamily: 'var(--ds-font-display, inherit)' }}>
-                Stock Movement History
+                Stock Movement Audit Log
               </Title>
             </Group>
-            <Text size="xs" c="dimmed">Chronological record of stock ins and outs, volume adjustments, and physical stock audits.</Text>
+            <Text size="xs" c="dimmed">Chronological ledger of finished goods dispatch orders, warehouse storage receipts, and recounts.</Text>
 
             <Table striped highlightOnHover verticalSpacing="sm">
               <Table.Thead>
                 <Table.Tr>
-                  <Table.Th style={{ width: 150 }}>Date & Time</Table.Th>
-                  <Table.Th style={{ width: 180 }}>Activity Type</Table.Th>
+                  <Table.Th style={{ width: 180 }}>Date & Time</Table.Th>
+                  <Table.Th style={{ width: 180 }}>Movement Type</Table.Th>
                   <Table.Th style={{ width: 140 }}>Quantity</Table.Th>
                   <Table.Th>Transaction Description</Table.Th>
                 </Table.Tr>
@@ -496,7 +422,7 @@ export default function StockDetailPage({ params }: { params: Promise<{ id: stri
                       </Table.Td>
                       <Table.Td>
                         <Text size="sm" fw={700}>
-                          {mov.activity_type === 'STOCK_OUT' ? '-' : '+'}{Number(mov.quantity).toLocaleString()} Kg
+                          {mov.activity_type === 'STOCK_OUT' ? '-' : '+'}{Number(mov.quantity).toLocaleString()} Units
                         </Text>
                       </Table.Td>
                       <Table.Td>
@@ -511,42 +437,65 @@ export default function StockDetailPage({ params }: { params: Promise<{ id: stri
         </Paper>
       </Stack>
 
-      {/* QC ACTION DECISION MODAL */}
+      {/* INVENTORY ADJUSTMENT MODAL */}
       <Modal
-        opened={qcModalOpened}
-        onClose={() => setQcModalOpened(false)}
+        opened={adjustModalOpened}
+        onClose={() => setAdjustModalOpened(false)}
         title={
-          <Title order={3} size="h4" c={qcDecision === 'PASSED' ? 'teal' : 'red'}>
-            {qcDecision === 'PASSED' ? 'Confirm QC Pass' : 'Confirm QC Reject'}
-          </Title>
+          <Group gap="xs">
+            <IconEdit size={20} color="violet" />
+            <Title order={3} size="h4">Adjust Finished Goods Stock</Title>
+          </Group>
         }
         centered
         radius="md"
       >
         <Stack gap="md">
           <Text size="sm">
-            You are about to complete the quality control inspection for batch <strong>{material.batch_code}</strong> ({material.material_name}).
+            Record a stock movement transaction for <strong>{productName}</strong>. This will modify the live warehouse stock balance.
           </Text>
 
+          <Select
+            label="Transaction Type"
+            placeholder="Select type"
+            data={[
+              { value: 'STOCK_IN', label: 'Stock In (Incoming Delivery / Production Receipt)' },
+              { value: 'STOCK_OUT', label: 'Stock Out (Distribution Dispatch / Sale Shipment)' },
+              { value: 'STOCK_ADJUSTMENT', label: 'Stock Adjustment (Physical Stock Audit Recount)' },
+            ]}
+            value={adjustType}
+            onChange={setAdjustType}
+            required
+          />
+
+          <NumberInput
+            label="Quantity"
+            placeholder="e.g. 50"
+            value={adjustQty}
+            onChange={setAdjustQty}
+            min={0}
+            required
+          />
+
           <Textarea
-            label="QC Inspection Notes"
-            placeholder="Write detailed inspection results for aroma, density, or visual defects..."
+            label="Transaction Notes / Description"
+            placeholder="Provide reasons, reference order numbers, or physical count discrepancy details..."
             required
             minRows={3}
-            value={qcNotes}
-            onChange={(e) => setQcNotes(e.currentTarget.value)}
+            value={adjustNotes}
+            onChange={(e) => setAdjustNotes(e.currentTarget.value)}
           />
 
           <Group justify="flex-end" mt="md">
-            <Button variant="outline" color="gray" onClick={() => setQcModalOpened(false)}>
+            <Button variant="outline" color="gray" onClick={() => setAdjustModalOpened(false)}>
               Cancel
             </Button>
             <Button
-              color={qcDecision === 'PASSED' ? 'teal' : 'red'}
-              onClick={handleQcSubmit}
+              color="violet"
+              onClick={handleAdjustmentSubmit}
               loading={submitting}
             >
-              Save QC Decision
+              Post Transaction
             </Button>
           </Group>
         </Stack>

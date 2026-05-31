@@ -54,8 +54,14 @@ export default function WarehouseModuleLayout({
         href: '/dashboard/warehouse-module',
       },
       {
-        id: 'stock-management',
-        label: 'Stock Management',
+        id: 'raw-material-stock',
+        label: 'Raw Material Stock',
+        icon: <IconPackages size={20} />,
+        href: '/dashboard/warehouse-module/raw-material',
+      },
+      {
+        id: 'product-stock-management',
+        label: 'Product Stock Management',
         icon: <IconPackages size={20} />,
         href: '/dashboard/warehouse-module/product',
       },
