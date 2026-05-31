@@ -3,7 +3,7 @@ frontend:
   phases:
     preBuild:
       commands:
-        - npm install -g pnpm@10.33.2
+        - corepack enable
         - pnpm install
     build:
       commands:
@@ -14,4 +14,5 @@ frontend:
       - '**/*'
   cache:
     paths:
-      - node_modules/**
+      - node_modules/**/*
+      - .next/cache/**/*
