@@ -16,6 +16,7 @@ import {
 import { useRouter, usePathname } from 'next/navigation';
 import { ModuleTitleContext } from '@/components/ModuleTitleContext';
 import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/lib/buildpad/hooks';
 
 export default function ProductionsLayout({
   children,
@@ -31,37 +32,87 @@ export default function ProductionsLayout({
 
   const router = useRouter();
   const pathname = usePathname();
+  const { user: currentUser } = useAuth();
   const [moduleTitle, setModuleTitle] = useState('Productions Dashboard');
 
-  // Dynamic user profile state
-  const [userName, setUserName] = useState('Productions Staff');
-  const [userRoleName, setUserRoleName] = useState('Production Team');
+  // Dynamic User Profile calculations from useAuth hook
+  const displayUserNameFallback = useMemo(() => {
+    if (!currentUser) return 'Productions Staff';
+    return (
+      [currentUser.first_name, currentUser.last_name]
+        .filter(Boolean)
+        .join(' ') || currentUser.email
+    );
+  }, [currentUser]);
 
+  const displayUserRoleFallback = useMemo(() => {
+    if (!currentUser) return 'Production Team';
+    
+    // 1. If explicit role field exists, use it
+    if (currentUser.role) return currentUser.role;
+    
+    // 2. If roles array exists and has items, use the names of the roles (e.g. "Manager")
+    if (currentUser.roles && currentUser.roles.length > 0) {
+      return currentUser.roles
+        .map((r) => r.name.charAt(0).toUpperCase() + r.name.slice(1))
+        .join(', ');
+    }
+    
+    // 3. Fallback to Admin or Operator
+    return currentUser.admin_access ? 'Super Admin' : 'Production Team';
+  }, [currentUser]);
+
+  const [userName, setUserName] = useState<string>('Productions Staff');
+  const [userRole, setUserRole] = useState<string>('Production Team');
+
+  // 1. Initialize and update when useAuth changes
   useEffect(() => {
-    const loadProfile = async () => {
+    if (currentUser) {
+      setUserName(displayUserNameFallback);
+      setUserRole(displayUserRoleFallback);
+    }
+  }, [currentUser, displayUserNameFallback, displayUserRoleFallback]);
+
+  // 2. Fetch live profile and role directly from public.users and roles table (identical to /dashboard page)
+  useEffect(() => {
+    const fetchUserData = async () => {
       try {
         const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data: profile } = await supabase
-            .from('users')
-            .select('fullname, roles(name)')
-            .eq('id', user.id)
-            .single();
-
-          if (profile) {
-            setUserName(profile.fullname || user.email || 'Productions Staff');
-            if (profile.roles && !Array.isArray(profile.roles)) {
-              setUserRoleName((profile.roles as any).name || 'Production Team');
-            }
-          }
+        
+        const { data: { user }, error: authErr } = await supabase.auth.getUser();
+        if (authErr || !user) return;
+        
+        const { data: profile, error: profileErr } = await supabase
+          .from('users')
+          .select('*, roles(id, name, description)')
+          .eq('id', user.id)
+          .single();
+          
+        if (profileErr || !profile) {
+          console.error('Error fetching profile details:', profileErr);
+          return;
+        }
+        
+        if (profile.fullname) {
+          setUserName(profile.fullname);
+        } else if (profile.email) {
+          setUserName(profile.email);
+        }
+        
+        if (profile.roles && profile.roles.name) {
+          setUserRole(profile.roles.name);
         }
       } catch (err) {
-        console.error('Failed to load user profile in layout:', err);
+        console.error('Failed to load user info:', err);
       }
     };
-    loadProfile();
+    
+    fetchUserData();
   }, []);
+
+  const displayUserAvatar = useMemo(() => {
+    return currentUser?.avatar || 'https://avatars.githubusercontent.com/u/1234?v=4';
+  }, [currentUser]);
 
   const menuItems = useMemo<DashboardMenuItem[]>(() => {
     const baseMenuItems: DashboardMenuItem[] = [
@@ -134,14 +185,15 @@ export default function ProductionsLayout({
         moduleTitle={moduleTitle}
         userInfo={{
           name: userName,
-          role: userRoleName,
-          avatar: 'https://avatars.githubusercontent.com/u/1234?v=4',
+          role: userRole,
+          avatar: displayUserAvatar,
         }}
         notificationCount={0}
         onMenuItemClick={handleMenuItemClick}
         onLogout={handleLogout}
         sidebarWidth={280}
         headerHeight={70}
+        hideAvatar={true}
       >
         {children}
       </DashboardLayout>
