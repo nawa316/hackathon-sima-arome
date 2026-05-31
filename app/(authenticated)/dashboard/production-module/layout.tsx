@@ -5,7 +5,6 @@ import {
   IconLayoutDashboard,
   IconBottle,
   IconBuildingFactory2,
-  IconTimeline,
   IconClipboardList,
   IconLogout,
   IconArrowLeft,
@@ -89,12 +88,6 @@ export default function ProductionsLayout({
         label: 'Production',
         icon: <IconBuildingFactory2 size={20} />,
         href: '/dashboard/production-module/production',
-      },
-      {
-        id: 'tracking-phase',
-        label: 'Tracking phase',
-        icon: <IconTimeline size={20} />,
-        href: '/dashboard/production-module/tracking-phase',
       },
       {
         id: 'phase',

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, Suspense } from 'react';
 import {
   Container,
   Stack,
@@ -20,6 +20,8 @@ import {
   ThemeIcon,
   Box,
   NumberInput,
+  Progress,
+  Alert,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
@@ -29,10 +31,23 @@ import {
   IconProgress,
   IconRefresh,
   IconX,
+  IconBuildingWarehouse,
+  IconAlertCircle,
+  IconPackage,
 } from '@tabler/icons-react';
 import { useSetModuleTitle } from '@/lib/hooks/useSetModuleTitle';
+import { useSearchParams } from 'next/navigation';
 import type { ProductionPhase, ProductionPhaseStatus } from '@/types/collections';
-import { useProductions, useProductionPhases, useUpdateProductionPhase, useUpdateProduction, useAllPhases } from '../production/_hooks';
+import {
+  useProductions,
+  useProductionPhases,
+  useUpdateProductionPhase,
+  useUpdateProduction,
+  useAllPhases,
+  useWarehouses,
+  useProductStocks,
+  useCreateProductStock,
+} from '../production/_hooks';
 
 const PHASE_STATUS_CONFIG: Record<
   ProductionPhaseStatus,
@@ -59,16 +74,22 @@ const STATUS_ORDER: ProductionPhaseStatus[] = ['PENDING', 'IN_PROGRESS', 'COMPLE
 
 /**
  * Tracking Phase Page
- * Dashboard untuk melihat & update perjalanan phase suatu produksi
+ * Monitor & update phase progress per production batch.
+ * Supports pre-selecting production via ?productionId= query param.
  */
-export default function TrackingPhasePage() {
+function TrackingPhasePageInner() {
   useSetModuleTitle('Productions Module');
 
-  const [selectedProductionId, setSelectedProductionId] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const preselectedId = searchParams.get('productionId');
+
+  const [selectedProductionId, setSelectedProductionId] = useState<string | null>(preselectedId);
   const [updateTarget, setUpdateTarget] = useState<ProductionPhase | null>(null);
   const [newStatus, setNewStatus] = useState<ProductionPhaseStatus | null>(null);
   const [note, setNote] = useState('');
   const [actualQuantity, setActualQuantity] = useState<number | string>('');
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | null>(null);
+  const [savingStock, setSavingStock] = useState(false);
   const [updateOpened, { open: openUpdate, close: closeUpdate }] = useDisclosure(false);
 
   const { productions, loading: productionsLoading, refetch: refetchProductions } = useProductions();
@@ -76,6 +97,9 @@ export default function TrackingPhasePage() {
   const { phases: masterPhases } = useAllPhases();
   const { update, loading: updating } = useUpdateProductionPhase();
   const { update: updateProduction, loading: updatingProduction } = useUpdateProduction();
+  const { warehouses } = useWarehouses();
+  const { productStocks } = useProductStocks();
+  const { create: createProductStock } = useCreateProductStock();
   const [cancelOpened, { open: openCancel, close: closeCancel }] = useDisclosure(false);
 
   const selectedProduction = productions.find((p) => p.id === selectedProductionId);
@@ -99,36 +123,33 @@ export default function TrackingPhasePage() {
   const handleUpdateStatus = useCallback(async () => {
     if (!updateTarget || !newStatus || !selectedProductionId) return;
 
-    // Update status phase
     await update(updateTarget.id, { status: newStatus, note: note || '' });
     closeUpdate();
 
-    // Ambil kondisi terbaru phases setelah update (simulasi dengan patch lokal)
     const updatedPhases = phases.map((p) =>
       p.id === updateTarget.id ? { ...p, status: newStatus } : p
     );
 
-    // Auto-sync status production
     const anyInProgress = updatedPhases.some((p) => p.status === 'IN_PROGRESS');
     const allCompleted = updatedPhases.length > 0 && updatedPhases.every((p) => p.status === 'COMPLETED');
     const currentStatus = selectedProduction?.status;
 
     if (allCompleted && currentStatus !== 'COMPLETED') {
-      await updateProduction(selectedProductionId, { 
+      await updateProduction(selectedProductionId, {
         status: 'COMPLETED',
       });
       refetchProductions();
       notifications.show({
-        title: '🎉 Production Selesai',
-        message: 'Semua fase selesai. Status production diubah ke COMPLETED.',
+        title: '🎉 Production Complete',
+        message: 'All phases done. Production status changed to COMPLETED.',
         color: 'teal',
       });
     } else if (anyInProgress && currentStatus === 'SCHEDULED') {
       await updateProduction(selectedProductionId, { status: 'IN_PROGRESS' });
       refetchProductions();
       notifications.show({
-        title: 'Production Dimulai',
-        message: 'Fase pertama dimulai. Status production diubah ke IN PROGRESS.',
+        title: 'Production Started',
+        message: 'First phase started. Production status changed to IN PROGRESS.',
         color: 'yellow',
       });
     } else {
@@ -146,19 +167,19 @@ export default function TrackingPhasePage() {
   const handleSubmitActualQuantity = useCallback(async () => {
     if (!selectedProductionId) return;
     try {
-      await updateProduction(selectedProductionId, { 
+      await updateProduction(selectedProductionId, {
         actual_quantity: Number(actualQuantity) || undefined,
       });
       refetchProductions();
       notifications.show({
-        title: 'Sukses',
-        message: 'Kuantitas real berhasil disimpan.',
+        title: 'Saved',
+        message: 'Actual quantity saved successfully.',
         color: 'teal',
       });
     } catch (err) {
       notifications.show({
-        title: 'Gagal Menyimpan',
-        message: err instanceof Error ? err.message : 'Terjadi kesalahan.',
+        title: 'Failed to Save',
+        message: err instanceof Error ? err.message : 'An error occurred.',
         color: 'red',
       });
     }
@@ -171,20 +192,58 @@ export default function TrackingPhasePage() {
       refetchProductions();
       closeCancel();
       notifications.show({
-        title: 'Production Dibatalkan',
-        message: 'Status production diubah ke CANCELLED.',
+        title: 'Production Cancelled',
+        message: 'Production status changed to CANCELLED.',
         color: 'red',
       });
     } catch (err) {
       notifications.show({
-        title: 'Gagal Membatalkan',
-        message: err instanceof Error ? err.message : 'Terjadi kesalahan.',
+        title: 'Failed to Cancel',
+        message: err instanceof Error ? err.message : 'An error occurred.',
         color: 'red',
       });
     }
   }, [updateProduction, selectedProductionId, closeCancel, refetchProductions]);
 
-  // Hitung stepper active step berdasarkan phases yang completed
+  const handleSaveToWarehouse = useCallback(async () => {
+    if (!selectedWarehouseId || !selectedProduction) return;
+    setSavingStock(true);
+    try {
+      await createProductStock({
+        product_id: selectedProduction.products_id,
+        warehouse_id: selectedWarehouseId,
+        amount: Number(actualQuantity) || selectedProduction.actual_quantity || selectedProduction.planned_quantity,
+      });
+      notifications.show({
+        title: '✅ Saved to Warehouse',
+        message: `Finished product stored in selected warehouse successfully.`,
+        color: 'teal',
+      });
+      setSelectedWarehouseId(null);
+    } catch (err) {
+      notifications.show({
+        title: 'Failed to Save',
+        message: err instanceof Error ? err.message : 'An error occurred while saving to warehouse.',
+        color: 'red',
+      });
+    } finally {
+      setSavingStock(false);
+    }
+  }, [selectedWarehouseId, selectedProduction, actualQuantity, createProductStock]);
+
+  // Calculate warehouse capacity usage
+  const getWarehouseUsage = (warehouseId: string) => {
+    const warehouse = warehouses.find((w) => w.id === warehouseId);
+    if (!warehouse) return { used: 0, total: 0, available: 0, percentage: 0 };
+    const used = productStocks
+      .filter((s) => s.warehouse_id === warehouseId)
+      .reduce((sum, s) => sum + Number(s.amount), 0);
+    const total = warehouse.capacity || 1;
+    const available = Math.max(0, total - used);
+    const percentage = Math.min(100, Math.round((used / total) * 100));
+    return { used, total, available, percentage };
+  };
+
   const completedCount = phases.filter((p) => p.status === 'COMPLETED').length;
   const inProgressIdx = phases.findIndex((p) => p.status === 'IN_PROGRESS');
   const activeStep = inProgressIdx !== -1 ? inProgressIdx : completedCount;
@@ -192,6 +251,9 @@ export default function TrackingPhasePage() {
   const PRODUCTION_STATUS_COLORS: Record<string, string> = {
     SCHEDULED: 'blue', IN_PROGRESS: 'yellow', COMPLETED: 'teal', CANCELLED: 'red',
   };
+
+  // Check if production is completed and no warehouse chosen yet
+  const isCompleted = selectedProduction?.status === 'COMPLETED';
 
   return (
     <Container size="xl" py="xl">
@@ -423,7 +485,7 @@ export default function TrackingPhasePage() {
         )}
 
         {/* Actual Quantity Panel */}
-        {selectedProduction?.status === 'COMPLETED' && (
+        {isCompleted && (
           <Paper withBorder p="xl" radius="md" bg="var(--mantine-color-blue-light)">
             <Group justify="space-between" align="flex-end">
               <Box style={{ flex: 1 }}>
@@ -441,14 +503,121 @@ export default function TrackingPhasePage() {
                   maw={300}
                 />
               </Box>
-              <Button 
-                onClick={handleSubmitActualQuantity} 
+              <Button
+                onClick={handleSubmitActualQuantity}
                 loading={updatingProduction}
                 color="blue"
               >
                 Submit Quantity
               </Button>
             </Group>
+          </Paper>
+        )}
+
+        {/* Warehouse Storage Panel — shown when production is COMPLETED */}
+        {isCompleted && (
+          <Paper withBorder p="xl" radius="md">
+            <Stack gap="md">
+              <Group gap="sm">
+                <ThemeIcon size="lg" radius="xl" variant="light" color="violet">
+                  <IconBuildingWarehouse size={20} />
+                </ThemeIcon>
+                <div>
+                  <Title order={4}>Store Finished Product to Warehouse</Title>
+                  <Text size="sm" c="dimmed">
+                    Select a warehouse to store the finished product. Capacity usage is shown per warehouse.
+                  </Text>
+                </div>
+              </Group>
+
+              <Divider />
+
+              {warehouses.length === 0 ? (
+                <Alert icon={<IconAlertCircle size={16} />} color="orange" variant="light">
+                  No warehouses found. Please add warehouses in the Warehouse Module first.
+                </Alert>
+              ) : (
+                <Stack gap="sm">
+                  <Select
+                    label="Select Warehouse"
+                    placeholder="Choose a warehouse..."
+                    data={warehouses.map((wh) => {
+                      const { available, percentage } = getWarehouseUsage(wh.id);
+                      const isFull = available <= 0;
+                      return {
+                        value: wh.id,
+                        label: `${wh.name} — Available: ${available.toLocaleString()} units (${100 - percentage}% free)`,
+                        disabled: isFull,
+                      };
+                    })}
+                    value={selectedWarehouseId}
+                    onChange={setSelectedWarehouseId}
+                    searchable
+                    size="md"
+                  />
+
+                  {/* Warehouse capacity detail */}
+                  {selectedWarehouseId && (() => {
+                    const { used, total, available, percentage } = getWarehouseUsage(selectedWarehouseId);
+                    const incoming = Number(actualQuantity) || selectedProduction?.actual_quantity || 0;
+                    const afterStore = available - incoming;
+                    const isOverCapacity = afterStore < 0;
+
+                    return (
+                      <Paper withBorder p="md" radius="md" bg="var(--mantine-color-violet-light)">
+                        <Stack gap="xs">
+                          <Group justify="space-between">
+                            <Text size="sm" fw={600}>Capacity Overview</Text>
+                            <Badge color={percentage > 80 ? 'red' : percentage > 60 ? 'orange' : 'teal'} variant="light">
+                              {percentage}% used
+                            </Badge>
+                          </Group>
+                          <Progress
+                            value={percentage}
+                            color={percentage > 80 ? 'red' : percentage > 60 ? 'orange' : 'teal'}
+                            radius="md"
+                            size="lg"
+                          />
+                          <Group justify="space-between" mt={4}>
+                            <Text size="xs" c="dimmed">Used: {used.toLocaleString()} units</Text>
+                            <Text size="xs" c="dimmed">Total: {total.toLocaleString()} units</Text>
+                          </Group>
+                          <Divider />
+                          <Group gap="xs">
+                            <IconPackage size={14} />
+                            <Text size="sm">
+                              Storing <strong>{incoming} units</strong> →{' '}
+                              {isOverCapacity ? (
+                                <Text span c="red" fw={600}>Exceeds capacity by {Math.abs(afterStore)} units!</Text>
+                              ) : (
+                                <Text span c="teal" fw={600}>{afterStore.toLocaleString()} units remaining after store</Text>
+                              )}
+                            </Text>
+                          </Group>
+                          {isOverCapacity && (
+                            <Alert icon={<IconAlertCircle size={14} />} color="red" variant="light" py="xs">
+                              This warehouse does not have enough capacity. Please choose another warehouse or reduce the quantity.
+                            </Alert>
+                          )}
+                        </Stack>
+                      </Paper>
+                    );
+                  })()}
+
+                  <Group justify="flex-end">
+                    <Button
+                      leftSection={<IconBuildingWarehouse size={16} />}
+                      color="violet"
+                      loading={savingStock}
+                      disabled={!selectedWarehouseId}
+                      onClick={handleSaveToWarehouse}
+                    >
+                      Save to Warehouse
+                    </Button>
+                  </Group>
+                </Stack>
+              )}
+            </Stack>
           </Paper>
         )}
 
@@ -510,17 +679,25 @@ export default function TrackingPhasePage() {
       <Modal opened={cancelOpened} onClose={closeCancel} title="Cancel Production" centered size="sm">
         <Stack gap="md">
           <Text>
-            Batalkan production batch <strong>{selectedProduction?.lot_number ?? selectedProductionId}</strong>?{' '}
-            Status akan diubah ke <Badge color="red" variant="light">CANCELLED</Badge> dan tidak dapat di-undo.
+            Cancel production batch <strong>{selectedProduction?.lot_number ?? selectedProductionId}</strong>?{' '}
+            Status will be changed to <Badge color="red" variant="light">CANCELLED</Badge> and cannot be undone.
           </Text>
           <Group justify="flex-end">
-            <Button variant="default" onClick={closeCancel}>Kembali</Button>
+            <Button variant="default" onClick={closeCancel}>Go Back</Button>
             <Button color="red" loading={updatingProduction} onClick={handleCancelProduction}>
-              Ya, Batalkan
+              Yes, Cancel
             </Button>
           </Group>
         </Stack>
       </Modal>
     </Container>
+  );
+}
+
+export default function TrackingPhasePage() {
+  return (
+    <Suspense fallback={<Center py="xl"><Loader /></Center>}>
+      <TrackingPhasePageInner />
+    </Suspense>
   );
 }

@@ -27,7 +27,7 @@ import {
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
-import { IconPlus, IconPencil, IconTrash, IconEye, IconAlertCircle, IconFlask, IconCheck } from '@tabler/icons-react';
+import { IconPlus, IconPencil, IconTrash, IconEye, IconAlertCircle, IconFlask, IconCheck, IconTimeline } from '@tabler/icons-react';
 import { useRouter } from 'next/navigation';
 import { useSetModuleTitle } from '@/lib/hooks/useSetModuleTitle';
 import type { Production, ProductionStatus, CreateProductionRequest, UpdateProductionRequest } from '@/types/collections';
@@ -40,6 +40,7 @@ import {
   useProductRecipes,
   useRawMaterials,
   useBulkCreateProductionMaterial,
+  useUpdateRawMaterialStock,
 } from './_hooks';
 
 const STATUS_OPTIONS: { value: string; label: string }[] = [
@@ -79,6 +80,7 @@ export default function ProductionPage() {
   const { bulkCreate: bulkCreateMaterials, loading: bulkCreating } = useBulkCreateProductionMaterial();
   const { update, loading: updating } = useUpdateProduction();
   const { remove, loading: deleting } = useDeleteProduction();
+  const { deductStock } = useUpdateRawMaterialStock();
 
   const getProductName = (pid: string) => {
     const p = products.find((x) => x.id === pid);
@@ -88,38 +90,55 @@ export default function ProductionPage() {
   const handleCreate = useCallback(
     async (data: CreateProductionRequest, scaledMaterials: { raw_material_id: string; quantity_used: number }[]) => {
       try {
-        // 1) Buat produksi
+        // 1) Create production batch
         const res = await create(data);
         const productionId: string = res?.data?.id;
 
-        // 2) Jika ada materials dari recipe, auto-create semuanya
+        // 2) Auto-create production materials from recipe
         if (productionId && scaledMaterials.length > 0) {
           await bulkCreateMaterials(
             scaledMaterials.map((m) => ({ ...m, production_id: productionId }))
           );
+
+          // 3) Deduct raw material stock in warehouse
+          try {
+            await deductStock(scaledMaterials);
+            notifications.show({
+              title: 'Stock Updated',
+              message: `Raw material stock deducted for ${scaledMaterials.length} material(s).`,
+              color: 'blue',
+            });
+          } catch (stockErr) {
+            console.error('Failed to deduct raw material stock:', stockErr);
+            notifications.show({
+              title: 'Stock Deduction Warning',
+              message: 'Production created but failed to update raw material stock. Please update manually.',
+              color: 'orange',
+            });
+          }
         }
 
         closeCreate();
         notifications.show({
-          title: 'Production dibuat',
+          title: 'Production Created',
           message: scaledMaterials.length > 0
-            ? `Batch berhasil dibuat dengan ${scaledMaterials.length} material dari recipe. Mengarahkan ke detail...`
-            : 'Batch berhasil dibuat. Mengarahkan ke detail...',
+            ? `Batch created with ${scaledMaterials.length} material(s) from recipe. Redirecting to detail...`
+            : 'Batch created successfully. Redirecting to detail...',
           color: 'teal',
         });
 
-        // 3) Redirect ke halaman detail agar user bisa langsung tambah phase
+        // 4) Redirect to detail page so user can add phases
         if (productionId) {
           router.push(`/dashboard/production-module/production/${productionId}`);
         } else {
           refetch();
         }
       } catch (error: unknown) {
-        const msg = error instanceof Error ? error.message : 'Gagal membuat production batch';
+        const msg = error instanceof Error ? error.message : 'Failed to create production batch';
         notifications.show({ title: 'Error', message: msg, color: 'red' });
       }
     },
-    [create, bulkCreateMaterials, closeCreate, refetch, router]
+    [create, bulkCreateMaterials, deductStock, closeCreate, refetch, router]
   );
 
   const handleEdit = useCallback(async (data: UpdateProductionRequest) => {
@@ -191,7 +210,7 @@ export default function ProductionPage() {
                   <Table.Th>Scheduled Date</Table.Th>
                   <Table.Th>Planned Qty</Table.Th>
                   <Table.Th>Status</Table.Th>
-                  <Table.Th style={{ width: 120 }}>Actions</Table.Th>
+                  <Table.Th style={{ width: 160 }}>Actions</Table.Th>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
@@ -228,6 +247,17 @@ export default function ProductionPage() {
                             onClick={() => router.push(`/dashboard/production-module/production/${prod.id}`)}
                           >
                             <IconEye size={14} />
+                          </ActionIcon>
+                        </Tooltip>
+                        <Tooltip label="Track Phase">
+                          <ActionIcon
+                            variant="light"
+                            color="teal"
+                            size="sm"
+                            onClick={() => router.push(`/dashboard/production-module/tracking-phase?productionId=${prod.id}`)}
+                            disabled={prod.status === 'CANCELLED'}
+                          >
+                            <IconTimeline size={14} />
                           </ActionIcon>
                         </Tooltip>
                         <Tooltip label="Edit">
@@ -430,27 +460,27 @@ function ProductionCreateModal({
           />
         </Group>
 
-        {/* Preview Material dari Recipe */}
+        {/* Preview Materials from Recipe */}
         {productsId && (
           <>
-            <Divider label="Material dari Recipe" labelPosition="left" />
+            <Divider label="Materials from Recipe" labelPosition="left" />
 
             {recipesLoading ? (
               <Center py="sm"><Loader size="sm" /></Center>
             ) : recipes.length === 0 ? (
               <Alert icon={<IconAlertCircle size={16} />} color="yellow" variant="light" py="sm">
-                Produk ini belum memiliki recipe. Material tidak akan otomatis ditambahkan.
-                Anda bisa menambahkan manual di halaman detail.
+                This product has no recipe defined. Materials will not be added automatically.
+                You can add them manually on the production detail page.
               </Alert>
             ) : scale === null ? (
               <Alert icon={<IconFlask size={16} />} color="blue" variant="light" py="sm">
-                Masukkan <strong>Planned Quantity</strong> untuk melihat kebutuhan material yang di-scale dari recipe.
+                Enter <strong>Planned Quantity</strong> to preview the scaled material requirements from recipe.
               </Alert>
             ) : (
               <>
                 <Alert icon={<IconCheck size={16} />} color="teal" variant="light" py="xs">
                   <Text size="sm">
-                    Berdasarkan recipe × <strong>{scale} unit</strong> — {scaledMaterials.length} material akan otomatis ditambahkan saat batch dibuat.
+                    Based on recipe × <strong>{scale} units</strong> — {scaledMaterials.length} material(s) will be automatically added and raw material stock will be deducted.
                   </Text>
                 </Alert>
                 <Box>
