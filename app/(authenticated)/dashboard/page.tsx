@@ -82,17 +82,30 @@ export default async function ChooseModulePage() {
         throw new Error('Anda belum memiliki akses ke modul mana pun. Silakan hubungi Super Admin.');
       }
     }
+
+    const roleName = userRole?.name || 'Staff';
+
+    return (
+      <ChooseModuleClient
+        displayName={displayName}
+        roleName={roleName}
+        allowedModuleCodes={allowedModuleCodes}
+        isSuperAdmin={isSuperAdmin}
+        errorMessage={errorMessage}
+      />
+    );
   } catch (err: any) {
     console.error('Error in Server RBAC Module Selector load:', err);
     errorMessage = err.message || 'Terjadi gangguan koneksi pada server.';
+    
+    return (
+      <ChooseModuleClient
+        displayName="ESSENTIALS"
+        roleName="Staff"
+        allowedModuleCodes={[]}
+        isSuperAdmin={false}
+        errorMessage={errorMessage}
+      />
+    );
   }
-
-  return (
-    <ChooseModuleClient
-      displayName={displayName}
-      allowedModuleCodes={allowedModuleCodes}
-      isSuperAdmin={isSuperAdmin}
-      errorMessage={errorMessage}
-    />
-  );
 }

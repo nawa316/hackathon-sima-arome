@@ -100,7 +100,7 @@ export default function WarehouseDetailPage({ params }: { params: Promise<{ id: 
       }
     } catch (err) {
       console.error(err);
-      setError('Gagal memuat detail gudang. Gudang tidak ditemukan atau database DaaS tidak terjangkau.');
+      setError('Failed to load warehouse details. Warehouse not found or DaaS database is unreachable.');
     } finally {
       setLoading(false);
     }
@@ -115,7 +115,7 @@ export default function WarehouseDetailPage({ params }: { params: Promise<{ id: 
       <Container size="xl" py="xl">
         <Stack align="center" justify="center" style={{ minHeight: '50vh' }}>
           <Loader size="xl" color="violet" />
-          <Text c="dimmed">Menghubungkan ke DaaS detail gudang...</Text>
+          <Text c="dimmed">Connecting to warehouse details DaaS...</Text>
         </Stack>
       </Container>
     );
@@ -131,10 +131,10 @@ export default function WarehouseDetailPage({ params }: { params: Promise<{ id: 
             color="gray"
             onClick={() => router.push('/dashboard/warehouse-module/warehouse')}
           >
-            Kembali ke Gudang
+            Back to Warehouses
           </Button>
-          <Alert icon={<IconAlertTriangle size={16} />} title="Perhatian" color="red">
-            {error || 'Data gudang tidak dapat ditemukan.'}
+          <Alert icon={<IconAlertTriangle size={16} />} title="Warning" color="red">
+            {error || 'Warehouse data could not be found.'}
           </Alert>
         </Stack>
       </Container>
@@ -173,7 +173,7 @@ export default function WarehouseDetailPage({ params }: { params: Promise<{ id: 
             color="violet"
             onClick={() => router.push('/dashboard/warehouse-module/warehouse')}
           >
-            Kembali ke Daftar Gudang
+            Back to Warehouse List
           </Button>
         </Group>
 
@@ -187,7 +187,7 @@ export default function WarehouseDetailPage({ params }: { params: Promise<{ id: 
               <Title order={1} style={{ fontFamily: 'var(--ds-font-display, inherit)', fontWeight: 700 }}>
                 {warehouse.name}
               </Title>
-              <Text size="sm" c="dimmed">Kode Gudang: <strong>{warehouse.code}</strong></Text>
+              <Text size="sm" c="dimmed">Warehouse Code: <strong>{warehouse.code}</strong></Text>
             </div>
           </Group>
           <Badge
@@ -195,7 +195,7 @@ export default function WarehouseDetailPage({ params }: { params: Promise<{ id: 
             color={warehouse.status === 'ACTIVE' ? 'teal' : 'red'}
             variant="filled"
           >
-            {warehouse.status === 'ACTIVE' ? 'Aktif' : 'Nonaktif'}
+            {warehouse.status === 'ACTIVE' ? 'Active' : 'Inactive'}
           </Badge>
         </Group>
 
@@ -205,27 +205,27 @@ export default function WarehouseDetailPage({ params }: { params: Promise<{ id: 
           <Paper p="xl" radius="md" withBorder style={{ flex: 1 }}>
             <Stack gap="xs">
               <Title order={4} size="h5" style={{ fontFamily: 'var(--ds-font-display, inherit)' }}>
-                Informasi Gudang
+                Warehouse Information
               </Title>
               <Divider my="xs" />
               <Group justify="space-between">
-                <Text size="xs" c="dimmed">Wilayah:</Text>
+                <Text size="xs" c="dimmed">Region:</Text>
                 <Text size="xs" fw={600}>{locationText}</Text>
               </Group>
               <Group justify="space-between" mt="xs">
-                <Text size="xs" c="dimmed">Kapasitas Maks:</Text>
+                <Text size="xs" c="dimmed">Max Capacity:</Text>
                 <Text size="xs" fw={600}>{(warehouse.capacity ?? 0).toLocaleString()} Kg</Text>
               </Group>
               <Group justify="space-between" mt="xs">
-                <Text size="xs" c="dimmed">Utilisasi Ruang:</Text>
+                <Text size="xs" c="dimmed">Space Utilization:</Text>
                 <Text size="xs" fw={700} c="violet">
                   {warehouse.capacity ? Math.round((totalQty / warehouse.capacity) * 100) : 0}% ({totalQty.toLocaleString()} / {(warehouse.capacity ?? 0).toLocaleString()} Kg)
                 </Text>
               </Group>
               <Group justify="space-between" mt="xs">
-                <Text size="xs" c="dimmed">Tanggal Terdaftar:</Text>
+                <Text size="xs" c="dimmed">Date Registered:</Text>
                 <Text size="xs">
-                  {new Date(warehouse.created_at).toLocaleDateString('id-ID', {
+                  {new Date(warehouse.created_at).toLocaleDateString('en-US', {
                     dateStyle: 'long',
                   })}
                 </Text>
@@ -246,7 +246,7 @@ export default function WarehouseDetailPage({ params }: { params: Promise<{ id: 
             <Stack gap="xs" align="stretch">
               <Group justify="space-between">
                 <Title order={4} size="h5" style={{ fontFamily: 'var(--ds-font-display, inherit)' }}>
-                  Pemantauan IoT Cold Storage
+                  Cold Storage IoT Monitoring
                 </Title>
                 <IconTemperature size={20} color={isHighTemp ? 'red' : 'teal'} />
               </Group>
@@ -254,30 +254,30 @@ export default function WarehouseDetailPage({ params }: { params: Promise<{ id: 
               
               {tempLog ? (
                 <Stack gap="xs" align="center" py="xs">
-                  <Text size="xxs" c="dimmed" tt="uppercase" lts={1}>Suhu Saat Ini</Text>
+                  <Text size="xxs" c="dimmed" tt="uppercase" lts={1}>Current Temperature</Text>
                   <Title order={1} style={{ fontSize: 36 }} c={isHighTemp ? 'red' : 'teal'}>
                     {tempLog.temperature}°C
                   </Title>
                   
                   {isHighTemp ? (
                     <Badge color="red" variant="filled" leftSection={<IconAlertTriangle size={12} />}>
-                      Warning: Suhu Terlalu Tinggi!
+                      Warning: Temperature Too High!
                     </Badge>
                   ) : (
                     <Badge color="teal" variant="light">
-                      Suhu Stabil (Aman)
+                      Temperature Stable (Safe)
                     </Badge>
                   )}
 
                   <Group gap="xs" mt="xs">
                     <IconClock size={12} color="dimmed" />
                     <Text size="xxs" c="dimmed">
-                      Diperbarui: {new Date(tempLog.recorded_at).toLocaleTimeString('id-ID')}
+                      Updated: {new Date(tempLog.recorded_at).toLocaleTimeString('en-US')}
                     </Text>
                   </Group>
                 </Stack>
               ) : (
-                <Text size="sm" c="dimmed" py="md" ta="center">IoT sensor tidak terhubung.</Text>
+                <Text size="sm" c="dimmed" py="md" ta="center">IoT sensor not connected.</Text>
               )}
             </Stack>
           </Paper>
@@ -286,24 +286,24 @@ export default function WarehouseDetailPage({ params }: { params: Promise<{ id: 
           <Paper p="xl" radius="md" withBorder>
             <Stack gap="xs">
               <Title order={4} size="h5" style={{ fontFamily: 'var(--ds-font-display, inherit)' }}>
-                Kondisi Stok Lokasi
+                Location Stock Status
               </Title>
               <Divider my="xs" />
               <Group justify="space-between">
-                <Text size="xs" c="dimmed">Total Item Kategori:</Text>
-                <Badge color="violet" variant="outline">{totalItems} Item</Badge>
+                <Text size="xs" c="dimmed">Total Item Categories:</Text>
+                <Badge color="violet" variant="outline">{totalItems} {totalItems === 1 ? 'Item' : 'Items'}</Badge>
               </Group>
               <Group justify="space-between" mt="xs">
-                <Text size="xs" c="dimmed">Total Kuantitas:</Text>
+                <Text size="xs" c="dimmed">Total Quantity:</Text>
                 <Text size="xs" fw={700}>{totalQty.toLocaleString()} Kg/Unit</Text>
               </Group>
               <Group justify="space-between" mt="xs">
-                <Text size="xs" c="dimmed">Stok Menipis (Low):</Text>
-                <Text size="xs" fw={700} c="orange">{lowStockItems} Item</Text>
+                <Text size="xs" c="dimmed">Low Stock:</Text>
+                <Text size="xs" fw={700} c="orange">{lowStockItems} {lowStockItems === 1 ? 'Item' : 'Items'}</Text>
               </Group>
               <Group justify="space-between" mt="xs">
-                <Text size="xs" c="dimmed">Stok Kosong (Out):</Text>
-                <Text size="xs" fw={700} c="red">{outStockItems} Item</Text>
+                <Text size="xs" c="dimmed">Out of Stock:</Text>
+                <Text size="xs" fw={700} c="red">{outStockItems} {outStockItems === 1 ? 'Item' : 'Items'}</Text>
               </Group>
             </Stack>
           </Paper>
@@ -315,28 +315,28 @@ export default function WarehouseDetailPage({ params }: { params: Promise<{ id: 
             <Group gap="xs">
               <IconPackages size={22} color="violet" />
               <Title order={3} size="h4" style={{ fontFamily: 'var(--ds-font-display, inherit)' }}>
-                Rincian Persediaan Barang & Material
+                Inventory Details (Items & Materials)
               </Title>
             </Group>
-            <Text size="xs" c="dimmed">Berikut adalah daftar lengkap persediaan bahan baku (Raw Materials) dan stok parfum jadi yang tersimpan di dalam gudang ini.</Text>
+            <Text size="xs" c="dimmed">Below is the complete list of raw materials and finished fragrance stocks stored in this warehouse.</Text>
 
             {totalItems === 0 ? (
               <Stack align="center" py="xl" gap="xs">
                 <IconPackages size={36} color="dimmed" />
-                <Text fw={600} size="sm">Gudang Kosong</Text>
-                <Text size="xs" c="dimmed">Saat ini tidak ada bahan baku atau produk jadi yang disimpan di dalam gudang ini.</Text>
+                <Text fw={600} size="sm">Warehouse Empty</Text>
+                <Text size="xs" c="dimmed">Currently there are no raw materials or finished products stored in this warehouse.</Text>
               </Stack>
             ) : (
               <Table.ScrollContainer minWidth={600}>
                 <Table striped highlightOnHover verticalSpacing="sm">
                   <Table.Thead>
                     <Table.Tr>
-                      <Table.Th style={{ width: 140 }}>Kode/Batch</Table.Th>
-                      <Table.Th>Nama Item / Material</Table.Th>
-                      <Table.Th style={{ width: 150 }}>Tipe Persediaan</Table.Th>
-                      <Table.Th style={{ width: 150 }}>Kuantitas Stok</Table.Th>
-                      <Table.Th style={{ width: 150 }}>Kondisi QC</Table.Th>
-                      <Table.Th style={{ width: 100 }}>Aksi</Table.Th>
+                      <Table.Th style={{ width: 140 }}>Code/Batch</Table.Th>
+                      <Table.Th>Item / Material Name</Table.Th>
+                      <Table.Th style={{ width: 150 }}>Inventory Type</Table.Th>
+                      <Table.Th style={{ width: 150 }}>Stock Quantity</Table.Th>
+                      <Table.Th style={{ width: 150 }}>QC Status</Table.Th>
+                      <Table.Th style={{ width: 100 }}>Action</Table.Th>
                     </Table.Tr>
                   </Table.Thead>
                   <Table.Tbody>
@@ -352,13 +352,13 @@ export default function WarehouseDetailPage({ params }: { params: Promise<{ id: 
                         qcLabel = 'Pending QC';
                       } else if (rm.status === 'QC_ACCEPTED') {
                         qcBadgeColor = 'teal';
-                        qcLabel = 'QC Lulus';
+                        qcLabel = 'QC Passed';
                       } else if (rm.status === 'QC_REJECTED') {
                         qcBadgeColor = 'red';
-                        qcLabel = 'QC Ditolak';
+                        qcLabel = 'QC Rejected';
                       } else if (rm.status === 'IN_PRODUCTION') {
                         qcBadgeColor = 'blue';
-                        qcLabel = 'Dalam Produksi';
+                        qcLabel = 'In Production';
                       }
 
                       return (
@@ -372,7 +372,7 @@ export default function WarehouseDetailPage({ params }: { params: Promise<{ id: 
                             <Text fw={600} size="sm">{rm.material_name}</Text>
                           </Table.Td>
                           <Table.Td>
-                            <Badge color="indigo" variant="outline" size="xs">Bahan Baku</Badge>
+                            <Badge color="indigo" variant="outline" size="xs">Raw Material</Badge>
                           </Table.Td>
                           <Table.Td>
                             <Text size="sm" fw={600} c={qty < 100 ? (qty <= 0 ? 'red' : 'orange') : 'teal'}>
@@ -385,7 +385,7 @@ export default function WarehouseDetailPage({ params }: { params: Promise<{ id: 
                             </Badge>
                           </Table.Td>
                           <Table.Td>
-                            <Tooltip label="Lihat Detail Stok">
+                            <Tooltip label="View Stock Details">
                               <ActionIcon
                                 variant="light"
                                 color="blue"
@@ -413,7 +413,7 @@ export default function WarehouseDetailPage({ params }: { params: Promise<{ id: 
                             <Text fw={600} size="sm">Jasmine Perfume Product (Stock)</Text>
                           </Table.Td>
                           <Table.Td>
-                            <Badge color="teal" variant="outline" size="xs">Produk Jadi</Badge>
+                            <Badge color="teal" variant="outline" size="xs">Finished Product</Badge>
                           </Table.Td>
                           <Table.Td>
                             <Text size="sm" fw={600} c={qty < 50 ? (qty <= 0 ? 'red' : 'orange') : 'teal'}>
@@ -421,10 +421,10 @@ export default function WarehouseDetailPage({ params }: { params: Promise<{ id: 
                             </Text>
                           </Table.Td>
                           <Table.Td>
-                            <Badge color="teal" variant="filled" size="xs">Tersedia</Badge>
+                            <Badge color="teal" variant="filled" size="xs">Available</Badge>
                           </Table.Td>
                           <Table.Td>
-                            <Tooltip label="Lihat Detail Stok">
+                            <Tooltip label="View Stock Details">
                               <ActionIcon
                                 variant="light"
                                 color="blue"

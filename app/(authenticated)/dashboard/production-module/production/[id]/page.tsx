@@ -25,7 +25,7 @@ import {
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
-import { IconPlus, IconTrash, IconArrowLeft } from '@tabler/icons-react';
+import { IconPlus, IconTrash, IconArrowLeft, IconPencil } from '@tabler/icons-react';
 import { useRouter } from 'next/navigation';
 import { useSetModuleTitle } from '@/lib/hooks/useSetModuleTitle';
 import type {
@@ -39,6 +39,7 @@ import {
   useProduction,
   useProductionPhases,
   useCreateProductionPhase,
+  useUpdateProductionPhase,
   useDeleteProductionPhase,
   useProductionMaterials,
   useCreateProductionMaterial,
@@ -75,6 +76,7 @@ export default function ProductionDetailPage({
   const { rawMaterials } = useRawMaterials();
 
   const { create: createPhase, loading: creatingPhase } = useCreateProductionPhase();
+  const { update: updatePhase, loading: updatingPhase } = useUpdateProductionPhase();
   const { remove: removePhase, loading: deletingPhase } = useDeleteProductionPhase();
   const { create: createMaterial, loading: creatingMaterial } = useCreateProductionMaterial();
   const { remove: removeMaterial, loading: deletingMaterial } = useDeleteProductionMaterial();
@@ -83,35 +85,84 @@ export default function ProductionDetailPage({
   const [materialOpened, { open: openMaterial, close: closeMaterial }] = useDisclosure(false);
   const [deletePhaseTarget, setDeletePhaseTarget] = useState<ProductionPhase | null>(null);
   const [deleteMaterialTarget, setDeleteMaterialTarget] = useState<ProductionMaterial | null>(null);
+  const [editPhaseTarget, setEditPhaseTarget] = useState<ProductionPhase | null>(null);
 
   const handleAddPhase = useCallback(async (data: CreateProductionPhaseRequest) => {
-    await createPhase({ ...data, production_id: id });
-    closePhase();
-    refetchPhases();
-    notifications.show({ title: 'Success', message: 'Phase added to production', color: 'teal' });
+    try {
+      await createPhase({ ...data, production_id: id });
+      closePhase();
+      refetchPhases();
+      notifications.show({ title: 'Success', message: 'Phase added to production', color: 'teal' });
+    } catch (err) {
+      notifications.show({
+        title: 'Gagal Menyimpan Phase',
+        message: err instanceof Error ? err.message : 'Terjadi kesalahan saat menyimpan phase.',
+        color: 'red',
+      });
+    }
   }, [createPhase, id, closePhase, refetchPhases]);
 
   const handleDeletePhase = useCallback(async () => {
     if (!deletePhaseTarget) return;
-    await removePhase(deletePhaseTarget.id);
-    setDeletePhaseTarget(null);
-    refetchPhases();
-    notifications.show({ title: 'Removed', message: 'Phase removed', color: 'red' });
+    try {
+      await removePhase(deletePhaseTarget.id);
+      setDeletePhaseTarget(null);
+      refetchPhases();
+      notifications.show({ title: 'Removed', message: 'Phase removed', color: 'red' });
+    } catch (err) {
+      notifications.show({
+        title: 'Gagal Menghapus',
+        message: err instanceof Error ? err.message : 'Terjadi kesalahan saat menghapus phase.',
+        color: 'red',
+      });
+    }
   }, [removePhase, deletePhaseTarget, refetchPhases]);
 
+  const handleEditPhase = useCallback(async (data: { status: ProductionPhaseStatus; note: string }) => {
+    if (!editPhaseTarget) return;
+    try {
+      await updatePhase(editPhaseTarget.id, data);
+      setEditPhaseTarget(null);
+      refetchPhases();
+      notifications.show({ title: 'Success', message: 'Phase updated', color: 'teal' });
+    } catch (err) {
+      notifications.show({
+        title: 'Gagal Update',
+        message: err instanceof Error ? err.message : 'Terjadi kesalahan saat mengupdate phase.',
+        color: 'red',
+      });
+    }
+  }, [updatePhase, editPhaseTarget, refetchPhases]);
+
   const handleAddMaterial = useCallback(async (data: CreateProductionMaterialRequest) => {
-    await createMaterial({ ...data, production_id: id });
-    closeMaterial();
-    refetchMaterials();
-    notifications.show({ title: 'Success', message: 'Material added', color: 'teal' });
+    try {
+      await createMaterial({ ...data, production_id: id });
+      closeMaterial();
+      refetchMaterials();
+      notifications.show({ title: 'Success', message: 'Material added', color: 'teal' });
+    } catch (err) {
+      notifications.show({
+        title: 'Gagal Menyimpan Material',
+        message: err instanceof Error ? err.message : 'Terjadi kesalahan saat menyimpan material.',
+        color: 'red',
+      });
+    }
   }, [createMaterial, id, closeMaterial, refetchMaterials]);
 
   const handleDeleteMaterial = useCallback(async () => {
     if (!deleteMaterialTarget) return;
-    await removeMaterial(deleteMaterialTarget.id);
-    setDeleteMaterialTarget(null);
-    refetchMaterials();
-    notifications.show({ title: 'Removed', message: 'Material removed', color: 'red' });
+    try {
+      await removeMaterial(deleteMaterialTarget.id);
+      setDeleteMaterialTarget(null);
+      refetchMaterials();
+      notifications.show({ title: 'Removed', message: 'Material removed', color: 'red' });
+    } catch (err) {
+      notifications.show({
+        title: 'Gagal Menghapus',
+        message: err instanceof Error ? err.message : 'Terjadi kesalahan saat menghapus material.',
+        color: 'red',
+      });
+    }
   }, [removeMaterial, deleteMaterialTarget, refetchMaterials]);
 
   if (prodLoading) return <Center py="xl"><Loader /></Center>;
@@ -200,7 +251,7 @@ export default function ProductionDetailPage({
                         <Table.Th>Phase</Table.Th>
                         <Table.Th>Status</Table.Th>
                         <Table.Th>Notes</Table.Th>
-                        <Table.Th style={{ width: 60 }}>Actions</Table.Th>
+                        <Table.Th style={{ width: 80 }}>Actions</Table.Th>
                       </Table.Tr>
                     </Table.Thead>
                     <Table.Tbody>
@@ -214,11 +265,18 @@ export default function ProductionDetailPage({
                           </Table.Td>
                           <Table.Td><Text size="sm" c="dimmed">{ph.note || '—'}</Text></Table.Td>
                           <Table.Td>
-                            <Tooltip label="Remove phase">
-                              <ActionIcon variant="light" color="red" size="sm" onClick={() => setDeletePhaseTarget(ph)}>
-                                <IconTrash size={14} />
-                              </ActionIcon>
-                            </Tooltip>
+                            <Group gap="xs">
+                              <Tooltip label="Edit note & status">
+                                <ActionIcon variant="light" color="yellow" size="sm" onClick={() => setEditPhaseTarget(ph)}>
+                                  <IconPencil size={14} />
+                                </ActionIcon>
+                              </Tooltip>
+                              <Tooltip label="Remove phase">
+                                <ActionIcon variant="light" color="red" size="sm" onClick={() => setDeletePhaseTarget(ph)}>
+                                  <IconTrash size={14} />
+                                </ActionIcon>
+                              </Tooltip>
+                            </Group>
                           </Table.Td>
                         </Table.Tr>
                       ))}
@@ -290,6 +348,17 @@ export default function ProductionDetailPage({
         rawMaterials={rawMaterials}
       />
 
+      {/* Edit Phase Modal */}
+      <EditPhaseModal
+        key={editPhaseTarget?.id ?? 'edit-phase'}
+        opened={!!editPhaseTarget}
+        onClose={() => setEditPhaseTarget(null)}
+        onSubmit={handleEditPhase}
+        loading={updatingPhase}
+        initialValues={editPhaseTarget ?? undefined}
+        getPhaseName={getPhaseName}
+      />
+
       {/* Delete Phase Confirm */}
       <Modal opened={!!deletePhaseTarget} onClose={() => setDeletePhaseTarget(null)} title="Remove Phase" centered size="sm">
         <Stack gap="md">
@@ -337,7 +406,7 @@ function AddPhaseModal({
 
   const handleSubmit = () => {
     if (!phaseId) return;
-    onSubmit({ production_id: '', phase_id: phaseId, status, note: note || undefined });
+    onSubmit({ production_id: '', phase_id: phaseId, status, note: note || '' });
   };
 
   return (
@@ -419,6 +488,63 @@ function AddMaterialModal({
         <Group justify="flex-end" mt="sm">
           <Button variant="default" onClick={onClose}>Cancel</Button>
           <Button loading={loading} onClick={handleSubmit}>Add Material</Button>
+        </Group>
+      </Stack>
+    </Modal>
+  );
+}
+
+// ────────────────────────────────────────────────────────────
+// Edit Phase Modal
+// ────────────────────────────────────────────────────────────
+
+function EditPhaseModal({
+  opened, onClose, onSubmit, loading, initialValues, getPhaseName,
+}: {
+  opened: boolean;
+  onClose: () => void;
+  onSubmit: (data: { status: ProductionPhaseStatus; note: string }) => void;
+  loading: boolean;
+  initialValues?: Partial<ProductionPhase>;
+  getPhaseName: (id: string) => string;
+}) {
+  const [status, setStatus] = useState<ProductionPhaseStatus>(initialValues?.status ?? 'PENDING');
+  const [note, setNote] = useState(initialValues?.note ?? '');
+
+  const handleSubmit = () => {
+    onSubmit({ status, note: note || '' });
+  };
+
+  return (
+    <Modal
+      opened={opened}
+      onClose={onClose}
+      title={`Edit Phase: ${getPhaseName(initialValues?.phase_id ?? '')}`}
+      centered
+    >
+      <Stack gap="md">
+        <Select
+          label="Status"
+          data={[
+            { value: 'PENDING', label: 'Pending' },
+            { value: 'IN_PROGRESS', label: 'In Progress' },
+            { value: 'COMPLETED', label: 'Completed' },
+          ]}
+          value={status}
+          onChange={(v) => setStatus((v as ProductionPhaseStatus) ?? 'PENDING')}
+        />
+        <Textarea
+          label="Notes (optional)"
+          placeholder="e.g. Compounding step completed"
+          value={note}
+          onChange={(e) => setNote(e.currentTarget.value)}
+          rows={3}
+          autosize
+          minRows={3}
+        />
+        <Group justify="flex-end" mt="sm">
+          <Button variant="default" onClick={onClose}>Cancel</Button>
+          <Button loading={loading} onClick={handleSubmit}>Save Changes</Button>
         </Group>
       </Stack>
     </Modal>

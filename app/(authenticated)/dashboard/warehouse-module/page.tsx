@@ -26,7 +26,7 @@ import { useSetModuleTitle } from '@/lib/hooks/useSetModuleTitle';
 import type { Warehouse, RawMaterial, ProductStock, AuditTrail } from '@/types/sima-arome';
 
 export default function DashboardPage() {
-  useSetModuleTitle('Dashboard SCM');
+  useSetModuleTitle('Dashboard');
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -62,7 +62,7 @@ export default function DashboardPage() {
       const warehousesData = await whRes.json();
       const rawMaterialsData = await rmRes.json();
       const productStocksData = await psRes.json();
-      
+
       let activitiesData = [];
       if (auditRes.ok) {
         const auditJson = await auditRes.json();
@@ -77,7 +77,7 @@ export default function DashboardPage() {
       });
     } catch (err) {
       console.error(err);
-      setError('Gagal memuat data dashboard. Silakan coba beberapa saat lagi.');
+      setError('Failed to load dashboard data. Please try again later.');
     } finally {
       setLoading(false);
     }
@@ -89,7 +89,7 @@ export default function DashboardPage() {
 
   // Compute metrics
   const totalWarehouses = data.warehouses.length;
-  
+
   // Total stock items = raw materials batches + product stocks
   const totalStockItems = data.rawMaterials.length + data.productStocks.length;
 
@@ -129,7 +129,7 @@ export default function DashboardPage() {
 
   // Map stock by warehouse for Bar Chart
   const warehouseStockMap: Record<string, { name: string; quantity: number }> = {};
-  
+
   // Initialise with existing warehouses
   data.warehouses.forEach((wh) => {
     warehouseStockMap[wh.id] = { name: wh.name, quantity: 0 };
@@ -186,28 +186,28 @@ export default function DashboardPage() {
     }
   ];
 
-  const recentActivities = data.activities.length > 0 
+  const recentActivities = data.activities.length > 0
     ? data.activities.slice(0, 5).map(act => ({
-        id: act.id,
-        timestamp: act.timestamp || new Date().toISOString(),
-        action: act.action,
-        description: `Melakukan aktivitas ${act.action} pada record ${act.record_id} di tabel ${act.target_table}`,
-        user: act.user?.fullname || 'System User'
-      }))
+      id: act.id,
+      timestamp: act.timestamp || new Date().toISOString(),
+      action: act.action,
+      description: `Performed activity ${act.action} on record ${act.record_id} in table ${act.target_table}`,
+      user: act.user?.fullname || 'System User'
+    }))
     : defaultActivities.map(act => ({
-        id: act.id,
-        timestamp: act.timestamp,
-        action: act.action,
-        description: act.description,
-        user: act.user.fullname
-      }));
+      id: act.id,
+      timestamp: act.timestamp,
+      action: act.action,
+      description: act.description,
+      user: act.user.fullname
+    }));
 
   if (loading) {
     return (
       <Container size="xl" py="xl">
         <Stack align="center" justify="center" style={{ minHeight: '60vh' }}>
           <Loader size="xl" variant="bars" color="violet" />
-          <Text c="dimmed">Memuat analisa gudang & stok...</Text>
+          <Text c="dimmed">Loading warehouse & stock analysis...</Text>
         </Stack>
       </Container>
     );
@@ -220,9 +220,9 @@ export default function DashboardPage() {
         <Group justify="space-between" align="center">
           <div>
             <Title order={1} style={{ fontFamily: 'var(--ds-font-display, inherit)', fontWeight: 700 }}>
-              Gudang & Inventori Dashboard
+              Warehouse & Inventory Dashboard
             </Title>
-            <Text c="dimmed">Pemantauan ketersediaan stok, integrasi QC, dan performa pergudangan secara real-time</Text>
+            <Text c="dimmed">Real-time monitoring of stock availability, QC integration, and warehouse performance</Text>
           </div>
           <Button
             leftSection={<IconRefresh size={16} />}
@@ -230,12 +230,12 @@ export default function DashboardPage() {
             color="violet"
             onClick={fetchData}
           >
-            Segarkan Data
+            Refresh Data
           </Button>
         </Group>
 
         {error && (
-          <Alert icon={<IconAlertTriangle size={16} />} title="Perhatian" color="red" variant="filled">
+          <Alert icon={<IconAlertTriangle size={16} />} title="Warning" color="red" variant="filled">
             {error}
           </Alert>
         )}
@@ -246,9 +246,9 @@ export default function DashboardPage() {
           <Paper p="lg" radius="md" withBorder style={{ borderTop: '4px solid var(--mantine-color-blue-filled)' }}>
             <Group justify="space-between" align="flex-start" wrap="nowrap">
               <Stack gap="xs">
-                <Text size="xs" fw={700} c="dimmed" tt="uppercase">Total Gudang</Text>
+                <Text size="xs" fw={700} c="dimmed" tt="uppercase">Total Warehouses</Text>
                 <Title order={2}>{totalWarehouses}</Title>
-                <Text size="xs" c="dimmed">Gudang aktif terdaftar</Text>
+                <Text size="xs" c="dimmed">Active registered warehouses</Text>
               </Stack>
               <Paper p="xs" radius="sm" bg="blue.0" c="blue.7">
                 <IconBuildingWarehouse size={24} />
@@ -260,9 +260,9 @@ export default function DashboardPage() {
           <Paper p="lg" radius="md" withBorder style={{ borderTop: '4px solid var(--mantine-color-violet-filled)' }}>
             <Group justify="space-between" align="flex-start" wrap="nowrap">
               <Stack gap="xs">
-                <Text size="xs" fw={700} c="dimmed" tt="uppercase">Kategori Stok</Text>
+                <Text size="xs" fw={700} c="dimmed" tt="uppercase">Stock Categories</Text>
                 <Title order={2}>{totalStockItems}</Title>
-                <Text size="xs" c="dimmed">Bahan baku & produk jadi</Text>
+                <Text size="xs" c="dimmed">Raw materials & finished products</Text>
               </Stack>
               <Paper p="xs" radius="sm" bg="violet.0" c="violet.7">
                 <IconPackages size={24} />
@@ -274,9 +274,9 @@ export default function DashboardPage() {
           <Paper p="lg" radius="md" withBorder style={{ borderTop: '4px solid var(--mantine-color-teal-filled)' }}>
             <Group justify="space-between" align="flex-start" wrap="nowrap">
               <Stack gap="xs">
-                <Text size="xs" fw={700} c="dimmed" tt="uppercase">Volume Stok</Text>
+                <Text size="xs" fw={700} c="dimmed" tt="uppercase">Stock Volume</Text>
                 <Title order={2}>{totalStockQty.toLocaleString()}</Title>
-                <Text size="xs" c="dimmed">Kg / Unit tersimpan</Text>
+                <Text size="xs" c="dimmed">Kg / Units stored</Text>
               </Stack>
               <Paper p="xs" radius="sm" bg="teal.0" c="teal.7">
                 <IconPackages size={24} />
@@ -288,9 +288,9 @@ export default function DashboardPage() {
           <Paper p="lg" radius="md" withBorder style={{ borderTop: '4px solid var(--mantine-color-orange-filled)' }}>
             <Group justify="space-between" align="flex-start" wrap="nowrap">
               <Stack gap="xs">
-                <Text size="xs" fw={700} c="dimmed" tt="uppercase">Stok Menipis</Text>
+                <Text size="xs" fw={700} c="dimmed" tt="uppercase">Low Stock</Text>
                 <Title order={2} c={lowStockCount > 0 ? 'orange' : 'dimmed'}>{lowStockCount}</Title>
-                <Text size="xs" c="dimmed">Butuh pengadaan baru</Text>
+                <Text size="xs" c="dimmed">Requires replenishment</Text>
               </Stack>
               <Paper p="xs" radius="sm" bg="orange.0" c="orange.7">
                 <IconAlertTriangle size={24} />
@@ -302,9 +302,9 @@ export default function DashboardPage() {
           <Paper p="lg" radius="md" withBorder style={{ borderTop: '4px solid var(--mantine-color-red-filled)' }}>
             <Group justify="space-between" align="flex-start" wrap="nowrap">
               <Stack gap="xs">
-                <Text size="xs" fw={700} c="dimmed" tt="uppercase">Stok Kosong</Text>
+                <Text size="xs" fw={700} c="dimmed" tt="uppercase">Out of Stock</Text>
                 <Title order={2} c={outOfStockCount > 0 ? 'red' : 'dimmed'}>{outOfStockCount}</Title>
-                <Text size="xs" c="dimmed">Krisis ketersediaan</Text>
+                <Text size="xs" c="dimmed">Availability crisis</Text>
               </Stack>
               <Paper p="xs" radius="sm" bg="red.0" c="red.7">
                 <IconAlertTriangle size={24} />
@@ -319,13 +319,13 @@ export default function DashboardPage() {
           <Paper p="xl" radius="md" withBorder>
             <Stack gap="md">
               <Title order={3} size="h4" style={{ fontFamily: 'var(--ds-font-display, inherit)' }}>
-                Distribusi Stok per Gudang (Kg/Unit)
+                Stock Distribution per Warehouse (Kg/Unit)
               </Title>
-              <Text size="xs" c="dimmed">Perbandingan jumlah akumulasi stok tersimpan di setiap lokasi gudang</Text>
-              
+              <Text size="xs" c="dimmed">Comparison of accumulated stock stored at each warehouse location</Text>
+
               {barChartData.length === 0 ? (
                 <Stack align="center" justify="center" h={250}>
-                  <Text c="dimmed" size="sm">Belum ada data distribusi gudang.</Text>
+                  <Text c="dimmed" size="sm">No warehouse distribution data available.</Text>
                 </Stack>
               ) : (
                 <div style={{ position: 'relative', height: 260, paddingTop: 10 }}>
@@ -339,15 +339,15 @@ export default function DashboardPage() {
                             <Text size="xs" fw={700} c="violet">{item.quantity.toLocaleString()} Kg/Unit</Text>
                           </Group>
                           <div style={{ height: 16, width: '100%', backgroundColor: 'var(--mantine-color-gray-1)', borderRadius: 8, overflow: 'hidden' }}>
-                            <div 
-                              style={{ 
-                                height: '100%', 
-                                width: `${percentage}%`, 
-                                backgroundColor: 'var(--mantine-color-violet-filled)', 
+                            <div
+                              style={{
+                                height: '100%',
+                                width: `${percentage}%`,
+                                backgroundColor: 'var(--mantine-color-violet-filled)',
                                 borderRadius: 8,
                                 transition: 'width 0.8s ease-in-out',
                                 background: 'linear-gradient(90deg, var(--mantine-color-violet-5) 0%, var(--mantine-color-violet-7) 100%)'
-                              }} 
+                              }}
                             />
                           </div>
                         </div>
@@ -363,13 +363,13 @@ export default function DashboardPage() {
           <Paper p="xl" radius="md" withBorder>
             <Stack gap="md" align="stretch">
               <Title order={3} size="h4" style={{ fontFamily: 'var(--ds-font-display, inherit)' }}>
-                Proporsi Kondisi Stok
+                Stock Status Proportion
               </Title>
-              <Text size="xs" c="dimmed">Rasio ketersediaan material dan barang jadi berdasarkan kondisi batas aman</Text>
+              <Text size="xs" c="dimmed">Ratio of material and finished goods availability based on safety threshold conditions</Text>
 
               {totalStockItems === 0 ? (
                 <Stack align="center" justify="center" h={250}>
-                  <Text c="dimmed" size="sm">Belum ada data stok tersimpan.</Text>
+                  <Text c="dimmed" size="sm">No stored stock data available.</Text>
                 </Stack>
               ) : (
                 <Group justify="space-around" h={260} align="center">
@@ -388,38 +388,38 @@ export default function DashboardPage() {
                         const offset3 = 25;
 
                         return (
-                           <>
-                             {/* Available (Green) */}
-                             {pAvailable > 0 && (
-                               <circle 
-                                 cx="18" cy="18" r="15.915" 
-                                 fill="none" stroke="var(--mantine-color-teal-filled)" 
-                                 strokeWidth="3.2" 
-                                 strokeDasharray={`${pAvailable} ${100 - pAvailable}`} 
-                                 strokeDashoffset={offset3}
-                               />
-                             )}
-                             {/* Low Stock (Orange) */}
-                             {pLow > 0 && (
-                               <circle 
-                                 cx="18" cy="18" r="15.915" 
-                                 fill="none" stroke="var(--mantine-color-orange-filled)" 
-                                 strokeWidth="3.2" 
-                                 strokeDasharray={`${pLow} ${100 - pLow}`} 
-                                 strokeDashoffset={offset1}
-                               />
-                             )}
-                             {/* Out of Stock (Red) */}
-                             {pOut > 0 && (
-                               <circle 
-                                 cx="18" cy="18" r="15.915" 
-                                 fill="none" stroke="var(--mantine-color-red-filled)" 
-                                 strokeWidth="3.2" 
-                                 strokeDasharray={`${pOut} ${100 - pOut}`} 
-                                 strokeDashoffset={offset2}
-                               />
-                             )}
-                           </>
+                          <>
+                            {/* Available (Green) */}
+                            {pAvailable > 0 && (
+                              <circle
+                                cx="18" cy="18" r="15.915"
+                                fill="none" stroke="var(--mantine-color-teal-filled)"
+                                strokeWidth="3.2"
+                                strokeDasharray={`${pAvailable} ${100 - pAvailable}`}
+                                strokeDashoffset={offset3}
+                              />
+                            )}
+                            {/* Low Stock (Orange) */}
+                            {pLow > 0 && (
+                              <circle
+                                cx="18" cy="18" r="15.915"
+                                fill="none" stroke="var(--mantine-color-orange-filled)"
+                                strokeWidth="3.2"
+                                strokeDasharray={`${pLow} ${100 - pLow}`}
+                                strokeDashoffset={offset1}
+                              />
+                            )}
+                            {/* Out of Stock (Red) */}
+                            {pOut > 0 && (
+                              <circle
+                                cx="18" cy="18" r="15.915"
+                                fill="none" stroke="var(--mantine-color-red-filled)"
+                                strokeWidth="3.2"
+                                strokeDasharray={`${pOut} ${100 - pOut}`}
+                                strokeDashoffset={offset2}
+                              />
+                            )}
+                          </>
                         );
                       })()}
                     </svg>
@@ -434,22 +434,22 @@ export default function DashboardPage() {
                     <Group gap="xs" wrap="nowrap">
                       <div style={{ width: 12, height: 12, borderRadius: 4, backgroundColor: 'var(--mantine-color-teal-filled)' }} />
                       <div>
-                        <Text size="xs" fw={700}>Tersedia (Aman)</Text>
-                        <Text size="xxs" c="dimmed">{availableCount} item ({Math.round((availableCount / totalStockItems) * 100)}%)</Text>
+                        <Text size="xs" fw={700}>Available (Safe)</Text>
+                        <Text size="xxs" c="dimmed">{availableCount} items ({Math.round((availableCount / totalStockItems) * 100)}%)</Text>
                       </div>
                     </Group>
                     <Group gap="xs" wrap="nowrap">
                       <div style={{ width: 12, height: 12, borderRadius: 4, backgroundColor: 'var(--mantine-color-orange-filled)' }} />
                       <div>
-                        <Text size="xs" fw={700}>Stok Menipis</Text>
-                        <Text size="xxs" c="dimmed">{lowStockCount} item ({Math.round((lowStockCount / totalStockItems) * 100)}%)</Text>
+                        <Text size="xs" fw={700}>Low Stock</Text>
+                        <Text size="xxs" c="dimmed">{lowStockCount} items ({Math.round((lowStockCount / totalStockItems) * 100)}%)</Text>
                       </div>
                     </Group>
                     <Group gap="xs" wrap="nowrap">
                       <div style={{ width: 12, height: 12, borderRadius: 4, backgroundColor: 'var(--mantine-color-red-filled)' }} />
                       <div>
-                        <Text size="xs" fw={700}>Stok Kosong</Text>
-                        <Text size="xxs" c="dimmed">{outOfStockCount} item ({Math.round((outOfStockCount / totalStockItems) * 100)}%)</Text>
+                        <Text size="xs" fw={700}>Out of Stock</Text>
+                        <Text size="xxs" c="dimmed">{outOfStockCount} items ({Math.round((outOfStockCount / totalStockItems) * 100)}%)</Text>
                       </div>
                     </Group>
                   </Stack>
@@ -467,10 +467,10 @@ export default function DashboardPage() {
                 <Group gap="xs">
                   <IconClock size={20} color="violet" />
                   <Title order={3} size="h4" style={{ fontFamily: 'var(--ds-font-display, inherit)' }}>
-                    Histori Aktivitas SCM Terbaru
+                    Recent SCM Activity History
                   </Title>
                 </Group>
-                <Text size="xs" c="dimmed" mt={4}>Rekaman log audit seluruh transaksi pergerakan barang dan master data gudang</Text>
+                <Text size="xs" c="dimmed" mt={4}>Audit log of all goods movement transactions and warehouse master data</Text>
               </div>
             </Group>
 
@@ -478,9 +478,9 @@ export default function DashboardPage() {
               <Table striped highlightOnHover verticalSpacing="sm">
                 <Table.Thead>
                   <Table.Tr>
-                    <Table.Th style={{ width: 140 }}>Tanggal & Waktu</Table.Th>
-                    <Table.Th style={{ width: 180 }}>Jenis Aktivitas</Table.Th>
-                    <Table.Th>Deskripsi Transaksi</Table.Th>
+                    <Table.Th style={{ width: 140 }}>Date & Time</Table.Th>
+                    <Table.Th style={{ width: 180 }}>Activity Type</Table.Th>
+                    <Table.Th>Transaction Description</Table.Th>
                     <Table.Th style={{ width: 150 }}>Operator</Table.Th>
                   </Table.Tr>
                 </Table.Thead>
@@ -500,7 +500,7 @@ export default function DashboardPage() {
                       <Table.Tr key={act.id}>
                         <Table.Td>
                           <Text size="xs">
-                            {new Date(act.timestamp).toLocaleString('id-ID', {
+                            {new Date(act.timestamp).toLocaleString('en-US', {
                               dateStyle: 'short',
                               timeStyle: 'short',
                             })}

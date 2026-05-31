@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   Container,
   Stack,
@@ -20,10 +20,14 @@ import {
   Tooltip,
   Select,
   SegmentedControl,
+  Divider,
+  Alert,
+  ThemeIcon,
+  Box,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
-import { IconPlus, IconPencil, IconTrash, IconEye } from '@tabler/icons-react';
+import { IconPlus, IconPencil, IconTrash, IconEye, IconAlertCircle, IconFlask, IconCheck } from '@tabler/icons-react';
 import { useRouter } from 'next/navigation';
 import { useSetModuleTitle } from '@/lib/hooks/useSetModuleTitle';
 import type { Production, ProductionStatus, CreateProductionRequest, UpdateProductionRequest } from '@/types/collections';
@@ -33,6 +37,9 @@ import {
   useUpdateProduction,
   useDeleteProduction,
   useAllProducts,
+  useProductRecipes,
+  useRawMaterials,
+  useBulkCreateProductionMaterial,
 } from './_hooks';
 
 const STATUS_OPTIONS: { value: string; label: string }[] = [
@@ -67,7 +74,9 @@ export default function ProductionPage() {
 
   const { productions, loading, refetch } = useProductions(statusFilter);
   const { products } = useAllProducts();
+  const { rawMaterials } = useRawMaterials();
   const { create, loading: creating } = useCreateProduction();
+  const { bulkCreate: bulkCreateMaterials, loading: bulkCreating } = useBulkCreateProductionMaterial();
   const { update, loading: updating } = useUpdateProduction();
   const { remove, loading: deleting } = useDeleteProduction();
 
@@ -76,20 +85,42 @@ export default function ProductionPage() {
     return p ? `${p.type} (${p.categories})` : pid;
   };
 
-  const handleCreate = useCallback(async (data: CreateProductionRequest) => {
-    try {
-      await create(data);
-      closeCreate();
-      refetch();
-      notifications.show({ title: 'Success', message: 'Production created', color: 'teal' });
-    } catch (error: any) {
-      notifications.show({
-        title: 'Error',
-        message: error.message || 'Failed to create production batch',
-        color: 'red',
-      });
-    }
-  }, [create, closeCreate, refetch]);
+  const handleCreate = useCallback(
+    async (data: CreateProductionRequest, scaledMaterials: { raw_material_id: string; quantity_used: number }[]) => {
+      try {
+        // 1) Buat produksi
+        const res = await create(data);
+        const productionId: string = res?.data?.id;
+
+        // 2) Jika ada materials dari recipe, auto-create semuanya
+        if (productionId && scaledMaterials.length > 0) {
+          await bulkCreateMaterials(
+            scaledMaterials.map((m) => ({ ...m, production_id: productionId }))
+          );
+        }
+
+        closeCreate();
+        notifications.show({
+          title: 'Production dibuat',
+          message: scaledMaterials.length > 0
+            ? `Batch berhasil dibuat dengan ${scaledMaterials.length} material dari recipe. Mengarahkan ke detail...`
+            : 'Batch berhasil dibuat. Mengarahkan ke detail...',
+          color: 'teal',
+        });
+
+        // 3) Redirect ke halaman detail agar user bisa langsung tambah phase
+        if (productionId) {
+          router.push(`/dashboard/production-module/production/${productionId}`);
+        } else {
+          refetch();
+        }
+      } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : 'Gagal membuat production batch';
+        notifications.show({ title: 'Error', message: msg, color: 'red' });
+      }
+    },
+    [create, bulkCreateMaterials, closeCreate, refetch, router]
+  );
 
   const handleEdit = useCallback(async (data: UpdateProductionRequest) => {
     if (!editTarget) return;
@@ -98,12 +129,9 @@ export default function ProductionPage() {
       closeEdit();
       refetch();
       notifications.show({ title: 'Success', message: 'Production updated', color: 'teal' });
-    } catch (error: any) {
-      notifications.show({
-        title: 'Error',
-        message: error.message || 'Failed to update production batch',
-        color: 'red',
-      });
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Failed to update production batch';
+      notifications.show({ title: 'Error', message: msg, color: 'red' });
     }
   }, [update, editTarget, closeEdit, refetch]);
 
@@ -115,12 +143,9 @@ export default function ProductionPage() {
       refetch();
       setDeleteTarget(null);
       notifications.show({ title: 'Deleted', message: 'Production deleted', color: 'red' });
-    } catch (error: any) {
-      notifications.show({
-        title: 'Error',
-        message: error.message || 'Failed to delete production batch',
-        color: 'red',
-      });
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Failed to delete production batch';
+      notifications.show({ title: 'Error', message: msg, color: 'red' });
     }
   }, [remove, deleteTarget, closeDelete, refetch]);
 
@@ -240,8 +265,9 @@ export default function ProductionPage() {
         opened={createOpened}
         onClose={closeCreate}
         onSubmit={handleCreate}
-        loading={creating}
+        loading={creating || bulkCreating}
         products={products}
+        rawMaterials={rawMaterials}
       />
       <ProductionEditModal
         key={editTarget?.id ?? 'edit'}
@@ -268,7 +294,7 @@ export default function ProductionPage() {
 }
 
 // ────────────────────────────────────────────────────────────
-// Production Form Shared Fields Component
+// Production Create Modal — dengan Recipe Scale Preview
 // ────────────────────────────────────────────────────────────
 
 function ProductionCreateModal({
@@ -277,12 +303,14 @@ function ProductionCreateModal({
   onSubmit,
   loading,
   products,
+  rawMaterials,
 }: {
   opened: boolean;
   onClose: () => void;
-  onSubmit: (data: CreateProductionRequest) => void;
+  onSubmit: (data: CreateProductionRequest, materials: { raw_material_id: string; quantity_used: number }[]) => void;
   loading: boolean;
   products: { id: string; type: string; categories: string }[];
+  rawMaterials: { id: string; material_name: string }[];
 }) {
   const [productsId, setProductsId] = useState('');
   const [scheduledDate, setScheduledDate] = useState<string | null>(null);
@@ -293,40 +321,184 @@ function ProductionCreateModal({
   const [lotNumber, setLotNumber] = useState('');
   const [status, setStatus] = useState<ProductionStatus>('SCHEDULED');
 
+  const { recipes, loading: recipesLoading } = useProductRecipes(productsId);
+
+  // Reset saat modal ditutup
+  useEffect(() => {
+    if (!opened) {
+      setProductsId('');
+      setScheduledDate(null);
+      setStartDate(null);
+      setEndDate(null);
+      setPlannedQty('');
+      setActualQty('');
+      setLotNumber('');
+      setStatus('SCHEDULED');
+    }
+  }, [opened]);
+
+  // Hitung scale factor dan material yang di-scale
+  const scale = plannedQty !== '' && Number(plannedQty) > 0 ? Number(plannedQty) : null;
+  const scaledMaterials = scale !== null
+    ? recipes.map((r) => ({
+        raw_material_id: r.raw_material_id,
+        quantity_used: parseFloat((r.quantity * scale).toFixed(4)),
+        material_name: rawMaterials.find((m) => m.id === r.raw_material_id)?.material_name ?? r.raw_material_id,
+        recipe_qty: r.quantity,
+      }))
+    : [];
+
+  const getRmName = (id: string) =>
+    rawMaterials.find((m) => m.id === id)?.material_name ?? id;
+
+  const isValid = productsId && scheduledDate && startDate && endDate && plannedQty !== '';
+
   const handleSubmit = () => {
-    if (!productsId || !scheduledDate || !startDate || !endDate || plannedQty === '') return;
-    onSubmit({
-      products_id: productsId,
-      scheduled_date: scheduledDate,
-      start_date: startDate,
-      end_date: endDate,
-      planned_quantity: Number(plannedQty),
-      actual_quantity: actualQty !== '' ? Number(actualQty) : undefined,
-      status,
-      lot_number: lotNumber || undefined,
-    });
+    if (!isValid) return;
+    onSubmit(
+      {
+        products_id: productsId,
+        scheduled_date: scheduledDate!,
+        start_date: startDate!,
+        end_date: endDate!,
+        planned_quantity: Number(plannedQty),
+        actual_quantity: actualQty !== '' ? Number(actualQty) : undefined,
+        status,
+        lot_number: lotNumber || undefined,
+      },
+      scaledMaterials.map(({ raw_material_id, quantity_used }) => ({ raw_material_id, quantity_used }))
+    );
   };
 
   return (
-    <Modal opened={opened} onClose={onClose} title="Create Production" centered size="lg">
-      <ProductionFormFields
-        productsId={productsId} setProductsId={setProductsId}
-        scheduledDate={scheduledDate} setScheduledDate={setScheduledDate}
-        startDate={startDate} setStartDate={setStartDate}
-        endDate={endDate} setEndDate={setEndDate}
-        plannedQty={plannedQty} setPlannedQty={setPlannedQty}
-        actualQty={actualQty} setActualQty={setActualQty}
-        lotNumber={lotNumber} setLotNumber={setLotNumber}
-        status={status} setStatus={setStatus}
-        products={products}
-        onClose={onClose}
-        onSubmit={handleSubmit}
-        loading={loading}
-        submitLabel="Create Production"
-      />
+    <Modal opened={opened} onClose={onClose} title="Create Production Batch" centered size="lg">
+      <Stack gap="md">
+        {/* Pilih Produk */}
+        <Select
+          label="Product"
+          placeholder="Select product"
+          data={products.map((p) => ({ value: p.id, label: `${p.type} (${p.categories})` }))}
+          value={productsId}
+          onChange={(val) => setProductsId(val ?? '')}
+          searchable
+          required
+        />
+
+        <TextInput
+          label="Lot Number"
+          placeholder="e.g. LOT-2026-001"
+          value={lotNumber}
+          onChange={(e) => setLotNumber(e.currentTarget.value)}
+        />
+
+        <Group grow>
+          <TextInput
+            label="Scheduled Date"
+            type="date"
+            value={scheduledDate ?? ''}
+            onChange={(e) => setScheduledDate(e.currentTarget.value || null)}
+            required
+          />
+          <Select
+            label="Status"
+            data={['SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']}
+            value={status}
+            onChange={(val) => setStatus((val as ProductionStatus) ?? 'SCHEDULED')}
+          />
+        </Group>
+
+        <Group grow>
+          <TextInput label="Start Date" type="date" value={startDate ?? ''} onChange={(e) => setStartDate(e.currentTarget.value || null)} required />
+          <TextInput label="End Date" type="date" value={endDate ?? ''} onChange={(e) => setEndDate(e.currentTarget.value || null)} required />
+        </Group>
+
+        <Group grow>
+          <NumberInput
+            label="Planned Quantity (unit)"
+            placeholder="e.g. 100"
+            value={plannedQty}
+            onChange={setPlannedQty}
+            min={1}
+            required
+          />
+          <NumberInput
+            label="Actual Quantity (opsional)"
+            placeholder="e.g. 98"
+            value={actualQty}
+            onChange={setActualQty}
+            min={0}
+          />
+        </Group>
+
+        {/* Preview Material dari Recipe */}
+        {productsId && (
+          <>
+            <Divider label="Material dari Recipe" labelPosition="left" />
+
+            {recipesLoading ? (
+              <Center py="sm"><Loader size="sm" /></Center>
+            ) : recipes.length === 0 ? (
+              <Alert icon={<IconAlertCircle size={16} />} color="yellow" variant="light" py="sm">
+                Produk ini belum memiliki recipe. Material tidak akan otomatis ditambahkan.
+                Anda bisa menambahkan manual di halaman detail.
+              </Alert>
+            ) : scale === null ? (
+              <Alert icon={<IconFlask size={16} />} color="blue" variant="light" py="sm">
+                Masukkan <strong>Planned Quantity</strong> untuk melihat kebutuhan material yang di-scale dari recipe.
+              </Alert>
+            ) : (
+              <>
+                <Alert icon={<IconCheck size={16} />} color="teal" variant="light" py="xs">
+                  <Text size="sm">
+                    Berdasarkan recipe × <strong>{scale} unit</strong> — {scaledMaterials.length} material akan otomatis ditambahkan saat batch dibuat.
+                  </Text>
+                </Alert>
+                <Box>
+                  <Table withColumnBorders withTableBorder fz="sm">
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th>Raw Material</Table.Th>
+                        <Table.Th style={{ width: 160 }}>Qty/unit (recipe)</Table.Th>
+                        <Table.Th style={{ width: 160 }}>Total Dibutuhkan</Table.Th>
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {scaledMaterials.map((m) => (
+                        <Table.Tr key={m.raw_material_id}>
+                          <Table.Td>
+                            <Group gap="xs">
+                              <ThemeIcon size="xs" color="teal" variant="light">
+                                <IconFlask size={10} />
+                              </ThemeIcon>
+                              <Text fw={500}>{getRmName(m.raw_material_id)}</Text>
+                            </Group>
+                          </Table.Td>
+                          <Table.Td c="dimmed">{m.recipe_qty} kg</Table.Td>
+                          <Table.Td fw={600} c="teal">{m.quantity_used} kg</Table.Td>
+                        </Table.Tr>
+                      ))}
+                    </Table.Tbody>
+                  </Table>
+                </Box>
+              </>
+            )}
+          </>
+        )}
+
+        <Group justify="flex-end" mt="sm">
+          <Button variant="default" onClick={onClose}>Cancel</Button>
+          <Button loading={loading} onClick={handleSubmit} disabled={!isValid}>
+            Create Production
+          </Button>
+        </Group>
+      </Stack>
     </Modal>
   );
 }
+
+// ────────────────────────────────────────────────────────────
+// Production Edit Modal (hanya update info umum, bukan materials)
+// ────────────────────────────────────────────────────────────
 
 function ProductionEditModal({
   opened,
@@ -368,97 +540,50 @@ function ProductionEditModal({
 
   return (
     <Modal opened={opened} onClose={onClose} title="Edit Production" centered size="lg">
-      <ProductionFormFields
-        productsId={productsId} setProductsId={setProductsId}
-        scheduledDate={scheduledDate} setScheduledDate={setScheduledDate}
-        startDate={startDate} setStartDate={setStartDate}
-        endDate={endDate} setEndDate={setEndDate}
-        plannedQty={plannedQty} setPlannedQty={setPlannedQty}
-        actualQty={actualQty} setActualQty={setActualQty}
-        lotNumber={lotNumber} setLotNumber={setLotNumber}
-        status={status} setStatus={setStatus}
-        products={products}
-        onClose={onClose}
-        onSubmit={handleSubmit}
-        loading={loading}
-        submitLabel="Save Changes"
-      />
+      <Stack gap="md">
+        <Select
+          label="Product"
+          placeholder="Select product"
+          data={products.map((p) => ({ value: p.id, label: `${p.type} (${p.categories})` }))}
+          value={productsId}
+          onChange={(val) => setProductsId(val ?? '')}
+          searchable
+          required
+        />
+        <TextInput
+          label="Lot Number"
+          placeholder="e.g. LOT-2026-001"
+          value={lotNumber}
+          onChange={(e) => setLotNumber(e.currentTarget.value)}
+        />
+        <Group grow>
+          <TextInput
+            label="Scheduled Date"
+            type="date"
+            value={scheduledDate ?? ''}
+            onChange={(e) => setScheduledDate(e.currentTarget.value || null)}
+            required
+          />
+          <Select
+            label="Status"
+            data={['SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']}
+            value={status}
+            onChange={(val) => setStatus((val as ProductionStatus) ?? 'SCHEDULED')}
+          />
+        </Group>
+        <Group grow>
+          <TextInput label="Start Date" type="date" value={startDate ?? ''} onChange={(e) => setStartDate(e.currentTarget.value || null)} required />
+          <TextInput label="End Date" type="date" value={endDate ?? ''} onChange={(e) => setEndDate(e.currentTarget.value || null)} required />
+        </Group>
+        <Group grow>
+          <NumberInput label="Planned Quantity" placeholder="e.g. 100" value={plannedQty} onChange={setPlannedQty} min={0} required />
+          <NumberInput label="Actual Quantity" placeholder="e.g. 98" value={actualQty} onChange={setActualQty} min={0} />
+        </Group>
+        <Group justify="flex-end" mt="sm">
+          <Button variant="default" onClick={onClose}>Cancel</Button>
+          <Button loading={loading} onClick={handleSubmit}>Save Changes</Button>
+        </Group>
+      </Stack>
     </Modal>
   );
 }
-
-// Shared form fields
-function ProductionFormFields({
-  productsId, setProductsId,
-  scheduledDate, setScheduledDate,
-  startDate, setStartDate,
-  endDate, setEndDate,
-  plannedQty, setPlannedQty,
-  actualQty, setActualQty,
-  lotNumber, setLotNumber,
-  status, setStatus,
-  products, onClose, onSubmit, loading, submitLabel,
-}: {
-  productsId: string; setProductsId: (v: string) => void;
-  scheduledDate: string | null; setScheduledDate: (v: string | null) => void;
-  startDate: string | null; setStartDate: (v: string | null) => void;
-  endDate: string | null; setEndDate: (v: string | null) => void;
-  plannedQty: number | string; setPlannedQty: (v: number | string) => void;
-  actualQty: number | string; setActualQty: (v: number | string) => void;
-  lotNumber: string; setLotNumber: (v: string) => void;
-  status: ProductionStatus; setStatus: (v: ProductionStatus) => void;
-  products: { id: string; type: string; categories: string }[];
-  onClose: () => void;
-  onSubmit: () => void;
-  loading: boolean;
-  submitLabel: string;
-}) {
-  return (
-    <Stack gap="md">
-      <Select
-        label="Product"
-        placeholder="Select product"
-        data={products.map((p) => ({ value: p.id, label: `${p.type} (${p.categories})` }))}
-        value={productsId}
-        onChange={(val) => setProductsId(val ?? '')}
-        searchable
-        required
-      />
-      <TextInput
-        label="Lot Number"
-        placeholder="e.g. LOT-2026-001"
-        value={lotNumber}
-        onChange={(e) => setLotNumber(e.currentTarget.value)}
-      />
-      <Group grow>
-        <TextInput
-          label="Scheduled Date"
-          placeholder="Pick date"
-          type="date"
-          value={scheduledDate ?? ''}
-          onChange={(e) => setScheduledDate(e.currentTarget.value || null)}
-          required
-        />
-        <Select
-          label="Status"
-          data={['SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']}
-          value={status}
-          onChange={(val) => setStatus((val as ProductionStatus) ?? 'SCHEDULED')}
-        />
-      </Group>
-      <Group grow>
-        <TextInput label="Start Date" placeholder="Pick date" type="date" value={startDate ?? ''} onChange={(e) => setStartDate(e.currentTarget.value || null)} required />
-        <TextInput label="End Date" placeholder="Pick date" type="date" value={endDate ?? ''} onChange={(e) => setEndDate(e.currentTarget.value || null)} required />
-      </Group>
-      <Group grow>
-        <NumberInput label="Planned Quantity" placeholder="e.g. 100" value={plannedQty} onChange={setPlannedQty} min={0} required />
-        <NumberInput label="Actual Quantity" placeholder="e.g. 98" value={actualQty} onChange={setActualQty} min={0} />
-      </Group>
-      <Group justify="flex-end" mt="sm">
-        <Button variant="default" onClick={onClose}>Cancel</Button>
-        <Button loading={loading} onClick={onSubmit}>{submitLabel}</Button>
-      </Group>
-    </Stack>
-  );
-}
-

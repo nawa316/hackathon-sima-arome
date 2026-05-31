@@ -1,6 +1,6 @@
 'use client';
 
-import React, { ReactNode, useState, use, useMemo } from 'react';
+import React, { ReactNode, useState, use, useMemo, useEffect } from 'react';
 import {
   IconLayoutDashboard,
   IconUsers,
@@ -8,6 +8,7 @@ import {
   IconLogout,
   IconBuildingWarehouse,
   IconPackages,
+  IconArrowLeft,
 } from '@tabler/icons-react';
 import {
   DashboardLayout,
@@ -15,6 +16,7 @@ import {
 } from '@/components/ui/dashboard-layout';
 import { useRouter, usePathname } from 'next/navigation';
 import { ModuleTitleContext } from '@/lib/context/ModuleTitleContext';
+import { createClient } from '@/lib/supabase/client';
 
 /**
  * Dashboard Shared Layout
@@ -36,9 +38,55 @@ export default function DashboardLayoutWrapper({
   const pathname = usePathname();
   const [moduleTitle, setModuleTitle] = useState('Dashboard');
 
+  // Dynamic user profile state
+  const [userName, setUserName] = useState('John Smyth');
+  const [userRole, setUserRole] = useState('GC Manager');
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const supabase = createClient();
+        
+        const { data: { user }, error: authErr } = await supabase.auth.getUser();
+        if (authErr || !user) return;
+        
+        const { data: profile, error: profileErr } = await supabase
+          .from('users')
+          .select('*, roles(id, name, description)')
+          .eq('id', user.id)
+          .single();
+          
+        if (profileErr || !profile) {
+          console.error('Error fetching profile details:', profileErr);
+          return;
+        }
+        
+        if (profile.fullname) {
+          setUserName(profile.fullname);
+        } else if (profile.email) {
+          setUserName(profile.email);
+        }
+        
+        if (profile.roles && profile.roles.name) {
+          setUserRole(profile.roles.name);
+        }
+      } catch (err) {
+        console.error('Failed to load user info in auth layout:', err);
+      }
+    };
+    
+    fetchUserData();
+  }, []);
+
   // Productions Module menu items dengan active state berdasarkan current pathname
   const menuItems = useMemo<DashboardMenuItem[]>(() => {
     const baseMenuItems: DashboardMenuItem[] = [
+      {
+        id: 'back-to-modules',
+        label: 'Back to Modules',
+        icon: <IconArrowLeft size={20} />,
+        href: '/dashboard',
+      },
       {
         id: 'dashboard',
         label: 'Dashboard Overview',
@@ -47,7 +95,7 @@ export default function DashboardLayoutWrapper({
       },
       {
         id: 'dashboard-scm',
-        label: 'Dashboard SCM',
+        label: 'Dashboard',
         icon: <IconLayoutDashboard size={20} />,
         href: '/dashboard/warehouse-module',
       },
@@ -86,8 +134,8 @@ export default function DashboardLayoutWrapper({
     // Set active state based on current pathname
     return filteredMenuItems.map((item) => ({
       ...item,
-      active: item.href === '/dashboard' 
-        ? pathname === '/dashboard' 
+      active: item.id === 'dashboard' || item.id === 'dashboard-scm' || item.id === 'back-to-modules'
+        ? pathname === item.href
         : pathname === item.href || pathname.startsWith(item.href + '/'),
     }));
   }, [pathname]);
@@ -108,11 +156,12 @@ export default function DashboardLayoutWrapper({
         logoSrc="/image/logo-sima-arome.png"
         moduleTitle={moduleTitle}
         userInfo={{
-          name: 'John Smyth',
-          role: 'GC Manager',
+          name: userName,
+          role: userRole,
           avatar: 'https://avatars.githubusercontent.com/u/1234?v=4',
         }}
-        notificationCount={3}
+        hideAvatar={true}
+        notificationCount={0}
         onMenuItemClick={handleMenuItemClick}
         onLogout={handleLogout}
         sidebarWidth={280}

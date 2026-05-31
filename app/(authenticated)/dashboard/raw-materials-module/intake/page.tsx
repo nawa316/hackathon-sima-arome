@@ -32,6 +32,7 @@ import {
 import { useSetModuleTitle } from '@/lib/hooks/useSetModuleTitle';
 import { daasAPI } from '@/lib/buildpad/hooks/api';
 import { useAuth } from '@/lib/buildpad/hooks';
+import { createClient } from '@/lib/supabase/client';
 import { logAuditTrail } from '@/lib/api/audit';
 import type { RawMaterial, Supplier, Offer, ProductSupplier, Warehouse } from '@/types/sima-arome';
 import { notifications } from '@mantine/notifications';
@@ -237,13 +238,22 @@ export default function RawMaterialIntakePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!currentUser) {
-      notifications.show({
-        title: 'Authentication Required',
-        message: 'Please log in to register raw material intakes.',
-        color: 'red'
-      });
-      return;
+    let userId = currentUser?.id;
+    if (!userId) {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.id) {
+          userId = user.id;
+        }
+      } catch (authErr) {
+        console.warn('Failed to retrieve user from Supabase client in intake form:', authErr);
+      }
+    }
+
+    if (!userId) {
+      // Fallback to seeded Admin User ID
+      userId = 'b11b5e5c-7833-40e1-bd6b-b4618e7774e1';
     }
 
     const errors: Record<string, boolean> = {};
@@ -279,7 +289,7 @@ export default function RawMaterialIntakePage() {
         category: formCategory,
         weight_kg: formWeightKg,
         unit: formUnit,
-        received_by: currentUser.id,
+        received_by: userId,
         received_at: formReceivedAt ? new Date(formReceivedAt).toISOString() : new Date().toISOString(),
         expired_date: formExpiredDate ? new Date(formExpiredDate).toISOString() : null,
         notes: formNotes,

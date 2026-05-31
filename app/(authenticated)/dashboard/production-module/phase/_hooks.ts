@@ -43,7 +43,14 @@ export function useCreatePhase() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
-      return await res.json();
+      const json = await res.json();
+      if (!res.ok) {
+        console.error('[useCreatePhase] Error response:', json);
+        throw new Error(
+          json.error || json.message || (json.errors && json.errors[0]?.message) || `Failed to create phase (${res.status})`
+        );
+      }
+      return json;
     } finally {
       setLoading(false);
     }
@@ -61,7 +68,14 @@ export function useUpdatePhase() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
-      return await res.json();
+      const json = await res.json();
+      if (!res.ok) {
+        console.error('[useUpdatePhase] Error response:', json);
+        throw new Error(
+          json.error || json.message || (json.errors && json.errors[0]?.message) || `Failed to update phase (${res.status})`
+        );
+      }
+      return json;
     } finally {
       setLoading(false);
     }
@@ -74,7 +88,14 @@ export function useDeletePhase() {
   const remove = useCallback(async (id: string) => {
     setLoading(true);
     try {
-      await fetch(`${BASE}/phase/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${BASE}/phase/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        console.error('[useDeletePhase] Error response:', json);
+        throw new Error(
+          json.error || json.message || (json.errors && json.errors[0]?.message) || `Failed to delete phase (${res.status})`
+        );
+      }
     } finally {
       setLoading(false);
     }

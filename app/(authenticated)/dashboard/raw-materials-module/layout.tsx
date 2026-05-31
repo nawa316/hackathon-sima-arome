@@ -1,6 +1,6 @@
 'use client';
 
-import React, { ReactNode, useState, use, useMemo } from 'react';
+import React, { ReactNode, useState, use, useMemo, useEffect } from 'react';
 import {
   IconLayoutDashboard,
   IconPackageImport,
@@ -16,6 +16,7 @@ import {
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/buildpad/hooks';
 import { ModuleTitleContext } from '@/lib/context/ModuleTitleContext';
+import { createClient } from '@/lib/supabase/client';
 
 /**
  * Raw Materials Module Layout
@@ -37,6 +38,46 @@ export default function RawMaterialsLayout({
   const pathname = usePathname();
   const { user: currentUser } = useAuth();
   const [moduleTitle, setModuleTitle] = useState('Raw Materials & Procurement');
+
+  // Dynamic user profile state
+  const [userName, setUserName] = useState('Procurement Staff');
+  const [userRole, setUserRole] = useState('Procurement Controller');
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const supabase = createClient();
+        
+        const { data: { user }, error: authErr } = await supabase.auth.getUser();
+        if (authErr || !user) return;
+        
+        const { data: profile, error: profileErr } = await supabase
+          .from('users')
+          .select('*, roles(id, name, description)')
+          .eq('id', user.id)
+          .single();
+          
+        if (profileErr || !profile) {
+          console.error('Error fetching profile details:', profileErr);
+          return;
+        }
+        
+        if (profile.fullname) {
+          setUserName(profile.fullname);
+        } else if (profile.email) {
+          setUserName(profile.email);
+        }
+        
+        if (profile.roles && profile.roles.name) {
+          setUserRole(profile.roles.name);
+        }
+      } catch (err) {
+        console.error('Failed to load user info in raw materials layout:', err);
+      }
+    };
+    
+    fetchUserData();
+  }, []);
 
   // Dynamic menu items with active state based on current pathname
   const menuItems = useMemo<DashboardMenuItem[]>(() => {
@@ -102,21 +143,6 @@ export default function RawMaterialsLayout({
     router.push('/login');
   };
 
-  // Dynamic User Profile calculations from useAuth hook
-  const displayUserName = useMemo(() => {
-    if (!currentUser) return 'Procurement Staff';
-    return (
-      [currentUser.first_name, currentUser.last_name]
-        .filter(Boolean)
-        .join(' ') || currentUser.email
-    );
-  }, [currentUser]);
-
-  const displayUserRole = useMemo(() => {
-    if (!currentUser) return 'Procurement Staff';
-    return currentUser.role || (currentUser.admin_access ? 'Super Admin' : 'Procurement Staff');
-  }, [currentUser]);
-
   const displayUserAvatar = useMemo(() => {
     return currentUser?.avatar || 'https://avatars.githubusercontent.com/u/1234?v=4';
   }, [currentUser]);
@@ -163,10 +189,11 @@ export default function RawMaterialsLayout({
         logoSrc="/image/logo-sima-arome.png"
         moduleTitle={moduleTitle}
         userInfo={{
-          name: displayUserName,
-          role: displayUserRole,
+          name: userName,
+          role: userRole,
           avatar: displayUserAvatar,
         }}
+        hideAvatar={true}
         notificationCount={0}
         onMenuItemClick={handleMenuItemClick}
         onLogout={handleLogout}

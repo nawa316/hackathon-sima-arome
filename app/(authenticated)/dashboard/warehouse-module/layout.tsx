@@ -14,6 +14,8 @@ import {
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/buildpad/hooks';
 import { ModuleTitleContext } from '@/lib/context/ModuleTitleContext';
+import { createClient } from '@/lib/supabase/client';
+import { useEffect } from 'react';
 
 /**
  * Warehouse/SCM Module Sidebar Layout
@@ -47,7 +49,7 @@ export default function WarehouseModuleLayout({
       },
       {
         id: 'dashboard',
-        label: 'Dashboard SCM',
+        label: 'Dashboard',
         icon: <IconLayoutDashboard size={20} />,
         href: '/dashboard/warehouse-module',
       },
@@ -89,7 +91,7 @@ export default function WarehouseModuleLayout({
   };
 
   // Dynamic User Profile calculations from useAuth hook
-  const displayUserName = useMemo(() => {
+  const displayUserNameFallback = useMemo(() => {
     if (!currentUser) return 'SCM Staff';
     return (
       [currentUser.first_name, currentUser.last_name]
@@ -98,10 +100,70 @@ export default function WarehouseModuleLayout({
     );
   }, [currentUser]);
 
-  const displayUserRole = useMemo(() => {
+  const displayUserRoleFallback = useMemo(() => {
     if (!currentUser) return 'Warehouse Operator';
-    return currentUser.role || (currentUser.admin_access ? 'Super Admin' : 'Warehouse Operator');
+    
+    // 1. If explicit role field exists, use it
+    if (currentUser.role) return currentUser.role;
+    
+    // 2. If roles array exists and has items, use the names of the roles (e.g. "Manager")
+    if (currentUser.roles && currentUser.roles.length > 0) {
+      return currentUser.roles
+        .map((r) => r.name.charAt(0).toUpperCase() + r.name.slice(1))
+        .join(', ');
+    }
+    
+    // 3. Fallback to Admin or Operator
+    return currentUser.admin_access ? 'Super Admin' : 'Warehouse Operator';
   }, [currentUser]);
+
+  const [userName, setUserName] = useState<string>('SCM Staff');
+  const [userRole, setUserRole] = useState<string>('Warehouse Operator');
+
+  // 1. Initialize and update when useAuth changes
+  useEffect(() => {
+    if (currentUser) {
+      setUserName(displayUserNameFallback);
+      setUserRole(displayUserRoleFallback);
+    }
+  }, [currentUser, displayUserNameFallback, displayUserRoleFallback]);
+
+  // 2. Fetch live profile and role directly from public.users and roles table (identical to /dashboard page)
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const supabase = createClient();
+        
+        const { data: { user }, error: authErr } = await supabase.auth.getUser();
+        if (authErr || !user) return;
+        
+        const { data: profile, error: profileErr } = await supabase
+          .from('users')
+          .select('*, roles(id, name, description)')
+          .eq('id', user.id)
+          .single();
+          
+        if (profileErr || !profile) {
+          console.error('Error fetching profile details:', profileErr);
+          return;
+        }
+        
+        if (profile.fullname) {
+          setUserName(profile.fullname);
+        } else if (profile.email) {
+          setUserName(profile.email);
+        }
+        
+        if (profile.roles && profile.roles.name) {
+          setUserRole(profile.roles.name);
+        }
+      } catch (err) {
+        console.error('Failed to load user info:', err);
+      }
+    };
+    
+    fetchUserData();
+  }, []);
 
   const displayUserAvatar = useMemo(() => {
     return currentUser?.avatar || 'https://avatars.githubusercontent.com/u/1234?v=4';
@@ -115,10 +177,11 @@ export default function WarehouseModuleLayout({
         logoSrc="/image/logo-sima-arome.png"
         moduleTitle={moduleTitle}
         userInfo={{
-          name: displayUserName,
-          role: displayUserRole,
+          name: userName,
+          role: userRole,
           avatar: displayUserAvatar,
         }}
+        hideAvatar={true}
         notificationCount={0}
         onMenuItemClick={handleMenuItemClick}
         onLogout={handleLogout}

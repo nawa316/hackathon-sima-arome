@@ -35,6 +35,11 @@ export interface Supplier {
   contact_person?: string;
   email?: string;
   status?: 'ACTIVE' | 'INACTIVE';
+  ahp_quality?: number;
+  ahp_accuracy?: number;
+  ahp_timeliness?: number;
+  ahp_price?: number;
+  ahp_service?: number;
 }
 
 export interface ProductSupplier {
