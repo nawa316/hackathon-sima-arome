@@ -7,6 +7,7 @@ import {
   IconBuildingFactory,
   IconAward,
   IconArrowLeft,
+  IconList,
 } from '@tabler/icons-react';
 import {
   DashboardLayout,
@@ -42,33 +43,39 @@ export default function RawMaterialsLayout({
     const rawMaterialsMenuItems = [
       {
         id: 'back-to-modules',
-        label: 'Kembali ke Modul',
+        label: 'Back to Modules',
         icon: <IconArrowLeft size={20} />,
         href: '/dashboard',
       },
       {
         id: 'dashboard',
-        label: 'Dashboard Analitik',
+        label: 'Dashboard',
         icon: <IconLayoutDashboard size={20} />,
-        href: '/dashboard/raw-materials',
+        href: '/dashboard/raw-materials-module',
       },
       {
         id: 'intake',
-        label: 'Penerimaan Bahan Baku',
+        label: 'Raw Material Intake',
         icon: <IconPackageImport size={20} />,
-        href: '/dashboard/raw-materials/intake',
+        href: '/dashboard/raw-materials-module/intake',
       },
       {
         id: 'supplier',
-        label: 'Manajemen Pemasok',
+        label: 'Suppliers',
         icon: <IconBuildingFactory size={20} />,
-        href: '/dashboard/raw-materials/supplier',
+        href: '/dashboard/raw-materials-module/supplier',
+      },
+      {
+        id: 'catalogs',
+        label: 'Catalogs',
+        icon: <IconList size={20} />,
+        href: '/dashboard/raw-materials-module/catalogs',
       },
       {
         id: 'evaluation',
-        label: 'Evaluasi Pemasok (AHP)',
+        label: 'Evaluations/AHP',
         icon: <IconAward size={20} />,
-        href: '/dashboard/raw-materials/evaluation',
+        href: '/dashboard/raw-materials-module/evaluation',
       },
     ];
 
@@ -97,7 +104,7 @@ export default function RawMaterialsLayout({
 
   // Dynamic User Profile calculations from useAuth hook
   const displayUserName = useMemo(() => {
-    if (!currentUser) return 'Staf Procurement';
+    if (!currentUser) return 'Procurement Staff';
     return (
       [currentUser.first_name, currentUser.last_name]
         .filter(Boolean)
@@ -116,6 +123,40 @@ export default function RawMaterialsLayout({
 
   return (
     <ModuleTitleContext.Provider value={{ moduleTitle, setModuleTitle }}>
+      <style dangerouslySetInnerHTML={{ __html: `
+        /* Force Montserrat / subheader font on all headings and title classes */
+        h1, h2, h3, h4, h5, h6,
+        .mantine-Title-root,
+        .mantine-Modal-title,
+        .mantine-Modal-header {
+          font-family: var(--ds-font-subheader, sans-serif) !important;
+        }
+
+        /* Force Inter / sans font on all body, input, select, dropdown, option, labels, and placeholders */
+        input, 
+        select, 
+        textarea,
+        button,
+        .mantine-Text-root,
+        .mantine-Table-thead,
+        .mantine-Table-tbody,
+        .mantine-Table-tr,
+        .mantine-Table-th,
+        .mantine-Table-td,
+        .mantine-Modal-body,
+        .mantine-TextInput-label,
+        .mantine-TextInput-input,
+        .mantine-NumberInput-label,
+        .mantine-NumberInput-input,
+        .mantine-Select-label,
+        .mantine-Select-input,
+        .mantine-Select-dropdown,
+        .mantine-Select-option,
+        .mantine-Button-label,
+        .mantine-Menu-item {
+          font-family: var(--ds-font-sans, sans-serif) !important;
+        }
+      ` }} />
       <DashboardLayout
         menuItems={menuItems}
         brandTitle="Sima Arôme"

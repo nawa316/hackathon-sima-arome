@@ -19,6 +19,7 @@ import {
   NumberInput,
   Textarea,
   Divider,
+  ActionIcon,
 } from '@mantine/core';
 import { DateInput } from '@mantine/dates';
 import {
@@ -36,8 +37,20 @@ import type { RawMaterial, Supplier, Offer, ProductSupplier, Warehouse } from '@
 import { notifications } from '@mantine/notifications';
 import Link from 'next/link';
 
+// Helper function to format empty/N/A values gracefully
+const formatFallbackValue = (val: string | number | null | undefined) => {
+  if (val === null || val === undefined || String(val).trim() === '' || String(val).toUpperCase() === 'N/A') {
+    return (
+      <span style={{ color: 'var(--ds-gray-400, #adb5bd)', fontWeight: 300, fontFamily: 'var(--ds-font-sans, sans-serif)' }}>
+        —
+      </span>
+    );
+  }
+  return val;
+};
+
 export default function RawMaterialIntakePage() {
-  useSetModuleTitle('Penerimaan Bahan Baku');
+  useSetModuleTitle('Raw Material Intake');
   const { user: currentUser } = useAuth();
 
   // List States
@@ -104,7 +117,7 @@ export default function RawMaterialIntakePage() {
       }
     } catch (err) {
       console.error(err);
-      setError('Gagal memuat data penerimaan. Silakan segarkan halaman.');
+      setError('Failed to load raw material intakes. Please refresh the page.');
     } finally {
       setLoading(false);
     }
@@ -158,9 +171,9 @@ export default function RawMaterialIntakePage() {
     }
     if (item.offer_id && offerToSupplierMap.has(item.offer_id)) {
       const sId = offerToSupplierMap.get(item.offer_id)!;
-      return supplierMap.get(sId) || 'Pemasok Sima Arôme';
+      return supplierMap.get(sId) || 'Sima Arôme Supplier';
     }
-    return 'Pemasok Sima Arôme';
+    return 'Sima Arôme Supplier';
   };
 
   // Filter supplier offers
@@ -169,10 +182,10 @@ export default function RawMaterialIntakePage() {
     return offers
       .filter(o => o.supplier_id === formSupplierId)
       .map(o => {
-        const prodName = productSupplierMap.get(o.product_supplier_id) || 'Bahan Baku';
+        const prodName = productSupplierMap.get(o.product_supplier_id) || 'Raw Material';
         return {
           value: o.id,
-          label: `${prodName} (Rp ${o.price.toLocaleString('id-ID')}/${o.lead_time} hari)`,
+          label: `${prodName} (Rp ${o.price.toLocaleString('id-ID')}/${o.lead_time} days)`,
           price: o.price,
           name: prodName
         };
@@ -206,8 +219,8 @@ export default function RawMaterialIntakePage() {
 
     if (!formSupplierId || !formOfferId || !formBatchCode || !formWarehouseId || !currentUser) {
       notifications.show({
-        title: 'Formulir Belum Lengkap',
-        message: 'Mohon isi semua bidang wajib.',
+        title: 'Incomplete Form',
+        message: 'Please fill in all required fields.',
         color: 'red'
       });
       return;
@@ -238,16 +251,16 @@ export default function RawMaterialIntakePage() {
       
       // Log Audit Trail
       await logAuditTrail(
-        'Penerimaan Bahan Baku Dibuat',
+        'Raw Material Intake Logged',
         'raw_materials',
         newItem.id,
         undefined,
-        `Mencatat penerimaan bahan baku ${formMaterialName} dengan nomor ${formIntakeNumber} dari supplier`
+        `Logged raw material intake ${formMaterialName} with number ${formIntakeNumber} from supplier`
       );
 
       notifications.show({
-        title: 'Berhasil Dicatat',
-        message: `Bahan baku ${formMaterialName} berhasil masuk sistem dengan status Pending QC.`,
+        title: 'Successfully Logged',
+        message: `Raw material ${formMaterialName} was successfully logged with Pending QC status.`,
         color: 'teal',
         icon: <IconCheck size={16} />,
       });
@@ -257,8 +270,8 @@ export default function RawMaterialIntakePage() {
     } catch (err) {
       console.error(err);
       notifications.show({
-        title: 'Gagal Menyimpan',
-        message: 'Terjadi kesalahan sistem saat menyimpan data penerimaan.',
+        title: 'Saving Failed',
+        message: 'A system error occurred while saving intake data.',
         color: 'red'
       });
     } finally {
@@ -269,17 +282,14 @@ export default function RawMaterialIntakePage() {
   // Table Data Filtering
   const filteredIntakes = React.useMemo(() => {
     return intakes.filter(item => {
-      // Search matches intake number or material name or batch code
       const searchMatch = 
         item.intake_number?.toLowerCase().includes(search.toLowerCase()) ||
         item.material_name?.toLowerCase().includes(search.toLowerCase()) ||
         item.batch_code?.toLowerCase().includes(search.toLowerCase());
 
-      // Supplier filter matches supplier_id or offer's supplier_id
       const supplierId = item.supplier_id || (item.offer_id ? offerToSupplierMap.get(item.offer_id) : null);
       const supplierMatch = !filterSupplier || supplierId === filterSupplier;
 
-      // Status filter
       const statusMatch = !filterStatus || item.status === filterStatus;
 
       return searchMatch && supplierMatch && statusMatch;
@@ -292,18 +302,20 @@ export default function RawMaterialIntakePage() {
         {/* Page Title & Button */}
         <Group justify="space-between" align="center" wrap="wrap">
           <div>
-            <Title order={1} style={{ fontFamily: 'var(--ds-font-display)', color: 'var(--ds-primary, #1e5b3a)' }}>
-              Penerimaan Bahan Baku (Intake)
+            <Title order={1} style={{ fontFamily: 'var(--ds-font-subheader, sans-serif)', color: 'var(--ds-primary, #1e5b3a)' }}>
+              Raw Material Intakes
             </Title>
-            <Text c="dimmed">Catat, cari, dan pantau logistik kedatangan bahan baku yang dikirim oleh pemasok</Text>
+            <Text c="dimmed" style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}>
+              Record, search, and monitor the logistics of raw material deliveries received from SCM suppliers
+            </Text>
           </div>
           <Button
             leftSection={<IconPlus size={16} />}
             color="emerald"
             onClick={handleOpenModal}
-            style={{ backgroundColor: '#1e5b3a' }}
+            style={{ backgroundColor: '#1e5b3a', fontFamily: 'var(--ds-font-sans, sans-serif)' }}
           >
-            Tambah Penerimaan
+            Add Intake
           </Button>
         </Group>
 
@@ -311,31 +323,42 @@ export default function RawMaterialIntakePage() {
         <Paper p="md" radius="md" withBorder>
           <Group gap="md" wrap="wrap">
             <TextInput
-              placeholder="Cari No. Intake, Bahan, atau Batch..."
+              placeholder="Search Intake No., Material, or Batch..."
               leftSection={<IconSearch size={16} />}
               value={search}
               onChange={(e) => setSearch(e.currentTarget.value)}
-              style={{ minWidth: 260 }}
+              style={{ minWidth: 280, fontFamily: 'var(--ds-font-sans, sans-serif)' }}
+              styles={{
+                input: { fontFamily: 'var(--ds-font-sans, sans-serif)' }
+              }}
             />
             <Select
-              placeholder="Filter Pemasok"
+              placeholder="Filter by Supplier"
               clearable
               value={filterSupplier}
               onChange={setFilterSupplier}
               data={suppliers.map(s => ({ value: s.id, label: s.name }))}
-              style={{ minWidth: 200 }}
+              style={{ minWidth: 220, fontFamily: 'var(--ds-font-sans, sans-serif)' }}
+              styles={{
+                input: { fontFamily: 'var(--ds-font-sans, sans-serif)' },
+                dropdown: { fontFamily: 'var(--ds-font-sans, sans-serif)' }
+              }}
             />
             <Select
-              placeholder="Filter Status QC"
+              placeholder="Filter by QC Status"
               clearable
               value={filterStatus}
               onChange={setFilterStatus}
               data={[
                 { value: 'PENDING_QC', label: 'Pending QC' },
-                { value: 'QC_ACCEPTED', label: 'Lolos QC' },
-                { value: 'QC_REJECTED', label: 'Ditolak QC' },
+                { value: 'QC_ACCEPTED', label: 'QC Passed' },
+                { value: 'QC_REJECTED', label: 'QC Rejected' },
               ]}
-              style={{ minWidth: 160 }}
+              style={{ minWidth: 180, fontFamily: 'var(--ds-font-sans, sans-serif)' }}
+              styles={{
+                input: { fontFamily: 'var(--ds-font-sans, sans-serif)' },
+                dropdown: { fontFamily: 'var(--ds-font-sans, sans-serif)' }
+              }}
             />
           </Group>
         </Paper>
@@ -345,84 +368,129 @@ export default function RawMaterialIntakePage() {
           {loading ? (
             <Stack align="center" py="xl">
               <Loader size="md" color="emerald" />
-              <Text size="sm" c="dimmed">Memuat daftar penerimaan...</Text>
+              <Text size="sm" c="dimmed" style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}>
+                Loading intakes directory...
+              </Text>
             </Stack>
           ) : filteredIntakes.length === 0 ? (
             <Stack align="center" py="xl">
-              <Text size="sm" c="dimmed">Tidak ada transaksi penerimaan bahan baku ditemukan.</Text>
+              <Text size="sm" c="dimmed" style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}>
+                No raw material intake transactions found.
+              </Text>
             </Stack>
           ) : (
             <Table.ScrollContainer minWidth={800}>
-              <Table striped highlightOnHover verticalSpacing="sm">
-                <Table.Thead>
+              <Table
+                striped
+                highlightOnHover
+                verticalSpacing="xs"
+                horizontalSpacing="md"
+                style={{
+                  fontFamily: 'var(--ds-font-sans, sans-serif)',
+                  fontSize: '0.85rem',
+                }}
+              >
+                <Table.Thead style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}>
                   <Table.Tr>
-                    <Table.Th>No. Penerimaan</Table.Th>
-                    <Table.Th>Nama Bahan</Table.Th>
-                    <Table.Th>No. Batch</Table.Th>
-                    <Table.Th>Pemasok</Table.Th>
-                    <Table.Th style={{ textAlign: 'right' }}>Jumlah</Table.Th>
-                    <Table.Th>Tanggal Datang</Table.Th>
-                    <Table.Th>Status QC</Table.Th>
+                    <Table.Th style={{ fontWeight: 600 }}>Intake Number</Table.Th>
+                    <Table.Th style={{ fontWeight: 600 }}>Material Name</Table.Th>
+                    <Table.Th style={{ fontWeight: 600 }}>Batch Number</Table.Th>
+                    <Table.Th style={{ fontWeight: 600 }}>Supplier</Table.Th>
+                    <Table.Th style={{ textAlign: 'right', fontWeight: 600 }}>Quantity</Table.Th>
+                    <Table.Th style={{ fontWeight: 600 }}>Arrival Date</Table.Th>
+                    <Table.Th style={{ fontWeight: 600 }}>QC Status</Table.Th>
                     <Table.Th style={{ width: 80 }}></Table.Th>
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
                   {filteredIntakes.map((item) => {
                     let badgeColor = 'gray';
-                    let badgeText = 'Tertunda';
+                    let badgeText = 'Pending';
                     if (item.status === 'PENDING_QC') {
-                      badgeColor = 'grape';
+                      badgeColor = 'orange';
                       badgeText = 'Pending QC';
                     } else if (item.status === 'QC_ACCEPTED' || item.status === 'IN_PRODUCTION') {
                       badgeColor = 'teal';
-                      badgeText = 'Lolos QC';
+                      badgeText = 'QC Passed';
                     } else if (item.status === 'QC_REJECTED') {
                       badgeColor = 'red';
-                      badgeText = 'Ditolak QC';
+                      badgeText = 'QC Rejected';
                     }
 
                     return (
                       <Table.Tr key={item.id}>
-                        <Table.Td>
-                          <Text size="xs" fw={700}>{item.intake_number || 'N/A'}</Text>
+                        <Table.Td style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}>
+                          <Text size="xs" fw={700} style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}>
+                            {formatFallbackValue(item.intake_number)}
+                          </Text>
                         </Table.Td>
-                        <Table.Td>
-                          <Text size="sm" fw={600}>{item.material_name}</Text>
-                          <Text size="xxs" c="dimmed">{item.category || 'Essential Oil'}</Text>
+                        <Table.Td style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}>
+                          <Text size="sm" fw={600} style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}>
+                            {formatFallbackValue(item.material_name)}
+                          </Text>
+                          <Text size="xxs" c="dimmed" style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}>
+                            {formatFallbackValue(item.category || 'Essential Oil')}
+                          </Text>
                         </Table.Td>
-                        <Table.Td>
-                          <Text size="xs">{item.batch_code}</Text>
+                        <Table.Td style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}>
+                          <Text size="xs" style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}>
+                            {formatFallbackValue(item.batch_code)}
+                          </Text>
                         </Table.Td>
-                        <Table.Td>
-                          <Text size="xs" fw={500}>{getSupplierName(item)}</Text>
+                        <Table.Td style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}>
+                          <Text size="xs" fw={500} style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}>
+                            {formatFallbackValue(getSupplierName(item))}
+                          </Text>
                         </Table.Td>
-                        <Table.Td style={{ textAlign: 'right' }}>
-                          <Text size="sm" fw={700}>{item.weight_kg} {item.unit || 'kg'}</Text>
+                        <Table.Td style={{ textAlign: 'right', fontFamily: 'var(--ds-font-sans, sans-serif)' }}>
+                          <Text size="sm" fw={700} style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}>
+                            {item.weight_kg} {formatFallbackValue(item.unit || 'kg')}
+                          </Text>
                         </Table.Td>
-                        <Table.Td>
-                          <Text size="xs">
-                            {new Date(item.received_at).toLocaleDateString('id-ID', {
+                        <Table.Td style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}>
+                          <Text size="xs" style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}>
+                            {new Date(item.received_at).toLocaleDateString('en-US', {
                               day: '2-digit',
                               month: 'short',
                               year: 'numeric'
                             })}
                           </Text>
                         </Table.Td>
-                        <Table.Td>
-                          <Badge color={badgeColor} variant="light" size="sm">
+                        <Table.Td style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}>
+                          <Badge
+                            color={badgeColor}
+                            variant="light"
+                            size="sm"
+                            styles={{
+                              root: {
+                                textTransform: 'none',
+                                fontWeight: 600,
+                                borderRadius: '6px',
+                                padding: '4px 10px',
+                                fontSize: '0.75rem',
+                                letterSpacing: '0.2px',
+                                fontFamily: 'var(--ds-font-sans, sans-serif)',
+                              }
+                            }}
+                          >
                             {badgeText}
                           </Badge>
                         </Table.Td>
-                        <Table.Td>
-                          <Button
+                        <Table.Td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
+                          <ActionIcon
                             component={Link}
-                            href={`/dashboard/raw-materials/intake/${item.id}`}
+                            href={`/dashboard/raw-materials-module/intake/${item.id}`}
                             variant="subtle"
                             color="emerald"
-                            p={4}
+                            size="md"
+                            radius="md"
+                            style={{
+                              color: 'var(--ds-primary, #1e5b3a)',
+                              transition: 'all 0.2s ease',
+                            }}
                           >
                             <IconEye size={18} />
-                          </Button>
+                          </ActionIcon>
                         </Table.Td>
                       </Table.Tr>
                     );
@@ -438,33 +506,53 @@ export default function RawMaterialIntakePage() {
       <Modal
         opened={opened}
         onClose={() => setOpened(false)}
-        title="Catat Penerimaan Bahan Baku Baru"
+        title="Record New Raw Material Intake"
         size="lg"
         radius="md"
+        styles={{
+          title: {
+            fontFamily: 'var(--ds-font-subheader, sans-serif)',
+            fontWeight: 700,
+            color: 'var(--ds-primary, #1e5b3a)',
+            fontSize: '1.15rem',
+          },
+          body: {
+            fontFamily: 'var(--ds-font-sans, sans-serif)',
+          }
+        }}
       >
         <form onSubmit={handleSubmit}>
           <Stack gap="md">
-            <Group grow>
+            <Group grow style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}>
               <TextInput
-                label="Nomor Penerimaan"
+                label="Intake Number"
                 value={formIntakeNumber}
                 readOnly
                 disabled
                 required
+                style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}
+                styles={{
+                  input: { fontFamily: 'var(--ds-font-sans, sans-serif)' }
+                }}
               />
               <Select
-                label="Lokasi Gudang Penyimpanan"
-                placeholder="Pilih Gudang"
+                label="Storage Warehouse"
+                placeholder="Select Warehouse"
                 data={warehouses.map(w => ({ value: w.id, label: `${w.name} (${w.code})` }))}
                 value={formWarehouseId}
                 onChange={(val) => setFormWarehouseId(val || '')}
                 required
+                style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}
+                styles={{
+                  input: { fontFamily: 'var(--ds-font-sans, sans-serif)' },
+                  dropdown: { fontFamily: 'var(--ds-font-sans, sans-serif)' }
+                }}
               />
             </Group>
 
             <Select
-              label="Pemasok (Supplier)"
-              placeholder="Pilih Pemasok"
+              label="Supplier"
+              placeholder="Select Supplier"
               searchable
               data={suppliers.filter(s => s.status !== 'INACTIVE').map(s => ({ value: s.id, label: s.name }))}
               value={formSupplierId}
@@ -473,91 +561,130 @@ export default function RawMaterialIntakePage() {
                 setFormOfferId('');
               }}
               required
+              style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}
+              styles={{
+                input: { fontFamily: 'var(--ds-font-sans, sans-serif)' },
+                dropdown: { fontFamily: 'var(--ds-font-sans, sans-serif)' }
+              }}
             />
 
             <Select
-              label="Bahan Baku Ditawarkan"
-              placeholder={formSupplierId ? "Pilih Bahan" : "Pilih Pemasok Terlebih Dahulu"}
+              label="Offered Material"
+              placeholder={formSupplierId ? "Select Material" : "Select Supplier First"}
               disabled={!formSupplierId}
               data={filteredOffers}
               value={formOfferId}
               onChange={handleOfferChange}
               required
+              style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}
+              styles={{
+                input: { fontFamily: 'var(--ds-font-sans, sans-serif)' },
+                dropdown: { fontFamily: 'var(--ds-font-sans, sans-serif)' }
+              }}
             />
 
-            <Group grow>
+            <Group grow style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}>
               <TextInput
-                label="Nomor Batch Pemasok"
-                placeholder="Contoh: RM-LAV-2026"
+                label="Supplier Batch Number"
+                placeholder="e.g., RM-LAV-2026"
                 value={formBatchCode}
                 onChange={(e) => setFormBatchCode(e.currentTarget.value)}
                 required
+                style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}
+                styles={{
+                  input: { fontFamily: 'var(--ds-font-sans, sans-serif)' }
+                }}
               />
               <TextInput
-                label="Kategori Bahan"
+                label="Material Category"
                 value={formCategory}
                 onChange={(e) => setFormCategory(e.currentTarget.value)}
                 required
+                style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}
+                styles={{
+                  input: { fontFamily: 'var(--ds-font-sans, sans-serif)' }
+                }}
               />
             </Group>
 
-            <Group grow>
+            <Group grow style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}>
               <NumberInput
-                label="Jumlah (Volume)"
+                label="Quantity (Volume)"
                 min={0.1}
                 decimalScale={2}
                 value={formWeightKg}
                 onChange={handleWeightChange}
                 required
+                style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}
+                styles={{
+                  input: { fontFamily: 'var(--ds-font-sans, sans-serif)' }
+                }}
               />
               <Select
-                label="Satuan"
+                label="Unit"
                 data={['kg', 'liter', 'gram']}
                 value={formUnit}
                 onChange={(val) => setFormUnit(val || 'kg')}
                 required
+                style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}
+                styles={{
+                  input: { fontFamily: 'var(--ds-font-sans, sans-serif)' },
+                  dropdown: { fontFamily: 'var(--ds-font-sans, sans-serif)' }
+                }}
               />
             </Group>
 
-            <Group grow>
+            <Group grow style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}>
               <DateInput
-                label="Tanggal Penerimaan"
-                placeholder="Pilih Tanggal"
-                value={formReceivedAt}
-                onChange={setFormReceivedAt}
+                label="Intake Date"
+                placeholder="Select Date"
+                value={formReceivedAt ? new Date(formReceivedAt) : null}
+                onChange={(d: any) => setFormReceivedAt(d ? d.toISOString().split('T')[0] : null)}
                 leftSection={<IconCalendar size={16} />}
                 required
+                style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}
+                styles={{
+                  input: { fontFamily: 'var(--ds-font-sans, sans-serif)' }
+                }}
               />
               <DateInput
-                label="Tanggal Kedaluwarsa"
-                placeholder="Pilih Tanggal"
-                value={formExpiredDate}
-                onChange={setFormExpiredDate}
+                label="Expiration Date"
+                placeholder="Select Date"
+                value={formExpiredDate ? new Date(formExpiredDate) : null}
+                onChange={(d: any) => setFormExpiredDate(d ? d.toISOString().split('T')[0] : null)}
                 leftSection={<IconCalendar size={16} />}
+                style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}
+                styles={{
+                  input: { fontFamily: 'var(--ds-font-sans, sans-serif)' }
+                }}
               />
             </Group>
 
             <Textarea
-              label="Catatan Kondisi Fisik / Cargo"
-              placeholder="Masukkan catatan kedatangan (misalnya: kemasan segel aman, suhu cargo 18 derajat celcius...)"
+              label="Physical Condition / Cargo Notes"
+              placeholder="Enter arrival condition remarks (e.g. seal is secure, container temperature is 18°C...)"
               value={formNotes}
               onChange={(e) => setFormNotes(e.currentTarget.value)}
               minRows={3}
+              style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}
+              styles={{
+                input: { fontFamily: 'var(--ds-font-sans, sans-serif)' }
+              }}
             />
 
             <Divider my="xs" />
 
             <Group justify="space-between" align="center">
               <div>
-                <Text size="xs" c="dimmed">ESTIMASI TOTAL BIAYA</Text>
-                <Text size="lg" fw={800} c="var(--ds-primary, #1e5b3a)">
+                <Text size="xs" c="dimmed" style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}>ESTIMATED TOTAL COST</Text>
+                <Text size="lg" fw={800} c="var(--ds-primary, #1e5b3a)" style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}>
                   Rp {formTotalPrice.toLocaleString('id-ID')}
                 </Text>
               </div>
               <Group>
-                <Button variant="outline" color="gray" onClick={() => setOpened(false)}>Batal</Button>
-                <Button type="submit" color="emerald" loading={submitting} style={{ backgroundColor: '#1e5b3a' }}>
-                  Simpan Penerimaan
+                <Button variant="outline" color="gray" onClick={() => setOpened(false)} style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}>Cancel</Button>
+                <Button type="submit" color="emerald" loading={submitting} style={{ backgroundColor: '#1e5b3a', fontFamily: 'var(--ds-font-sans, sans-serif)' }}>
+                  Save Intake
                 </Button>
               </Group>
             </Group>

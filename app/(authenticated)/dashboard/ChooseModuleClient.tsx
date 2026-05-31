@@ -58,7 +58,7 @@ export default function ChooseModuleClient({
       permissionCode: 'raw_materials',
       title: 'Raw Materials',
       icon: <IconLeaf size={32} stroke={1.5} />,
-      href: '/dashboard/raw-materials',
+      href: '/dashboard/raw-materials-module',
       description: 'Monitor procurement and formulas',
     },
     {
