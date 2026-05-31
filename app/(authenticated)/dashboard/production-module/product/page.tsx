@@ -193,6 +193,7 @@ export default function ProductsPage() {
 
       {/* Edit Modal */}
       <ProductEditModal
+        key={editTarget?.id ?? 'edit'}
         opened={editOpened}
         onClose={closeEdit}
         onSubmit={handleEdit}
@@ -298,16 +299,13 @@ function ProductEditModal({
   const [categories, setCategories] = useState(initialValues?.categories ?? '');
   const [price, setPrice] = useState<number | string>(initialValues?.price ?? '');
 
-  // Sync when initialValues changes (new edit target selected)
-  const key = initialValues?.id ?? 'new';
-
   const handleSubmit = () => {
     if (!type || !categories || price === '') return;
     onSubmit({ type, categories, price: Number(price) });
   };
 
   return (
-    <Modal key={key} opened={opened} onClose={onClose} title="Edit Product" centered>
+    <Modal opened={opened} onClose={onClose} title="Edit Product" centered>
       <Stack gap="md">
         <TextInput
           label="Product Type / Name"

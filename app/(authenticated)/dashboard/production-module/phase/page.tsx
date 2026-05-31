@@ -45,28 +45,52 @@ export default function PhasePage() {
   const { remove, loading: deleting } = useDeletePhase();
 
   const handleCreate = useCallback(async (data: CreatePhaseRequest) => {
-    await create(data);
-    closeCreate();
-    refetch();
-    notifications.show({ title: 'Success', message: 'Phase created', color: 'teal' });
+    try {
+      await create(data);
+      closeCreate();
+      refetch();
+      notifications.show({ title: 'Success', message: 'Phase created', color: 'teal' });
+    } catch (err) {
+      notifications.show({
+        title: 'Gagal Menyimpan',
+        message: err instanceof Error ? err.message : 'Terjadi kesalahan saat menyimpan phase.',
+        color: 'red',
+      });
+    }
   }, [create, closeCreate, refetch]);
 
   const handleEdit = useCallback(async (data: UpdatePhaseRequest) => {
     if (!editTarget) return;
-    await update(editTarget.id, data);
-    closeEdit();
-    refetch();
-    notifications.show({ title: 'Success', message: 'Phase updated', color: 'teal' });
+    try {
+      await update(editTarget.id, data);
+      closeEdit();
+      refetch();
+      notifications.show({ title: 'Success', message: 'Phase updated', color: 'teal' });
+    } catch (err) {
+      notifications.show({
+        title: 'Gagal Menyimpan',
+        message: err instanceof Error ? err.message : 'Terjadi kesalahan saat mengupdate phase.',
+        color: 'red',
+      });
+    }
   }, [update, editTarget, closeEdit, refetch]);
 
 
   const handleDelete = useCallback(async () => {
     if (!deleteTarget) return;
-    await remove(deleteTarget.id);
-    closeDelete();
-    refetch();
-    setDeleteTarget(null);
-    notifications.show({ title: 'Deleted', message: 'Phase deleted', color: 'red' });
+    try {
+      await remove(deleteTarget.id);
+      closeDelete();
+      refetch();
+      setDeleteTarget(null);
+      notifications.show({ title: 'Deleted', message: 'Phase deleted', color: 'red' });
+    } catch (err) {
+      notifications.show({
+        title: 'Gagal Menghapus',
+        message: err instanceof Error ? err.message : 'Terjadi kesalahan saat menghapus phase.',
+        color: 'red',
+      });
+    }
   }, [remove, deleteTarget, closeDelete, refetch]);
 
   return (

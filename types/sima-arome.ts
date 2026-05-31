@@ -31,6 +31,10 @@ export interface Supplier {
   phone_number: string;
   address: string;
   created_at: string;
+  code?: string;
+  contact_person?: string;
+  email?: string;
+  status?: 'ACTIVE' | 'INACTIVE';
 }
 
 export interface ProductSupplier {
@@ -76,7 +80,7 @@ export interface Warehouse {
 export interface RawMaterial {
   id: string;
   warehouse_id: string;
-  offer_id: string;
+  offer_id: string | null;
   batch_code: string;
   material_name: string;
   status: 'PENDING_QC' | 'QC_ACCEPTED' | 'QC_REJECTED' | 'IN_PRODUCTION';
@@ -88,6 +92,12 @@ export interface RawMaterial {
   warehouse?: Warehouse;
   offer?: Offer;
   receiver?: User;
+  supplier_id?: string;
+  intake_number?: string;
+  category?: string;
+  expired_date?: string;
+  notes?: string;
+  unit?: string;
 }
 
 export interface Product {
