@@ -3,8 +3,7 @@ frontend:
   phases:
     preBuild:
       commands:
-        - corepack enable
-        - pnpm config set ignore-scripts false
+        - npm install -g pnpm@9
         - pnpm install
     build:
       commands:
