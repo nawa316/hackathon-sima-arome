@@ -340,7 +340,7 @@ function ProductionCreateModal({
   onSubmit: (data: CreateProductionRequest, materials: { raw_material_id: string; quantity_used: number }[]) => void;
   loading: boolean;
   products: { id: string; type: string; categories: string }[];
-  rawMaterials: { id: string; material_name: string }[];
+  rawMaterials: { id: string; material_name: string; weight_kg?: number }[];
 }) {
   const [productsId, setProductsId] = useState('');
   const [scheduledDate, setScheduledDate] = useState<string | null>(null);
@@ -488,25 +488,37 @@ function ProductionCreateModal({
                     <Table.Thead>
                       <Table.Tr>
                         <Table.Th>Raw Material</Table.Th>
-                        <Table.Th style={{ width: 160 }}>Qty/unit (recipe)</Table.Th>
-                        <Table.Th style={{ width: 160 }}>Total Dibutuhkan</Table.Th>
+                        <Table.Th style={{ width: 140 }}>Qty/unit (recipe)</Table.Th>
+                        <Table.Th style={{ width: 140 }}>Required Total</Table.Th>
+                        <Table.Th style={{ width: 140 }}>Current Stock</Table.Th>
                       </Table.Tr>
                     </Table.Thead>
                     <Table.Tbody>
-                      {scaledMaterials.map((m) => (
-                        <Table.Tr key={m.raw_material_id}>
-                          <Table.Td>
-                            <Group gap="xs">
-                              <ThemeIcon size="xs" color="teal" variant="light">
-                                <IconFlask size={10} />
-                              </ThemeIcon>
-                              <Text fw={500}>{getRmName(m.raw_material_id)}</Text>
-                            </Group>
-                          </Table.Td>
-                          <Table.Td c="dimmed">{m.recipe_qty} kg</Table.Td>
-                          <Table.Td fw={600} c="teal">{m.quantity_used} kg</Table.Td>
-                        </Table.Tr>
-                      ))}
+                      {scaledMaterials.map((m) => {
+                        const rm = rawMaterials.find((r) => r.id === m.raw_material_id);
+                        const currentStock = rm?.weight_kg ?? 0;
+                        const isInsufficient = currentStock < m.quantity_used;
+                        return (
+                          <Table.Tr key={m.raw_material_id}>
+                            <Table.Td>
+                              <Group gap="xs">
+                                <ThemeIcon size="xs" color="teal" variant="light">
+                                  <IconFlask size={10} />
+                                </ThemeIcon>
+                                <Text fw={500}>{getRmName(m.raw_material_id)}</Text>
+                              </Group>
+                            </Table.Td>
+                            <Table.Td c="dimmed">{m.recipe_qty} kg</Table.Td>
+                            <Table.Td fw={600} c="teal">{m.quantity_used} kg</Table.Td>
+                            <Table.Td fw={600} c={isInsufficient ? 'red' : 'green'}>
+                              {currentStock} kg
+                              {isInsufficient && (
+                                <Text span size="xs" c="red" ml={4}>⚠ insufficient</Text>
+                              )}
+                            </Table.Td>
+                          </Table.Tr>
+                        );
+                      })}
                     </Table.Tbody>
                   </Table>
                 </Box>

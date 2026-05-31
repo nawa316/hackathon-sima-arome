@@ -484,142 +484,145 @@ function TrackingPhasePageInner() {
           </Paper>
         )}
 
-        {/* Actual Quantity Panel */}
-        {isCompleted && (
-          <Paper withBorder p="xl" radius="md" bg="var(--mantine-color-blue-light)">
-            <Group justify="space-between" align="flex-end">
-              <Box style={{ flex: 1 }}>
-                <Title order={5} mb={4}>Final Production Quantity</Title>
-                <Text size="sm" c="dimmed" mb="md">
-                  Submit or update the actual quantity produced in this batch.
-                </Text>
-                <NumberInput
-                  label="Actual Quantity (units)"
-                  placeholder="e.g. 100"
-                  value={actualQuantity}
-                  onChange={setActualQuantity}
-                  min={0}
-                  required
-                  maw={300}
-                />
-              </Box>
-              <Button
-                onClick={handleSubmitActualQuantity}
-                loading={updatingProduction}
-                color="blue"
-              >
-                Submit Quantity
-              </Button>
-            </Group>
-          </Paper>
-        )}
-
-        {/* Warehouse Storage Panel — shown when production is COMPLETED */}
+        {/* Completed — Final Quantity + Warehouse Storage (one card) */}
         {isCompleted && (
           <Paper withBorder p="xl" radius="md">
-            <Stack gap="md">
+            <Stack gap="lg">
+              {/* Header */}
               <Group gap="sm">
                 <ThemeIcon size="lg" radius="xl" variant="light" color="violet">
                   <IconBuildingWarehouse size={20} />
                 </ThemeIcon>
                 <div>
-                  <Title order={4}>Store Finished Product to Warehouse</Title>
+                  <Title order={4}>Finalize & Store to Warehouse</Title>
                   <Text size="sm" c="dimmed">
-                    Select a warehouse to store the finished product. Capacity usage is shown per warehouse.
+                    Set the final production quantity and choose a warehouse to store the finished product.
                   </Text>
                 </div>
               </Group>
 
               <Divider />
 
-              {warehouses.length === 0 ? (
-                <Alert icon={<IconAlertCircle size={16} />} color="orange" variant="light">
-                  No warehouses found. Please add warehouses in the Warehouse Module first.
-                </Alert>
-              ) : (
-                <Stack gap="sm">
-                  <Select
-                    label="Select Warehouse"
-                    placeholder="Choose a warehouse..."
-                    data={warehouses.map((wh) => {
-                      const { available, percentage } = getWarehouseUsage(wh.id);
-                      const isFull = available <= 0;
-                      return {
-                        value: wh.id,
-                        label: `${wh.name} — Available: ${available.toLocaleString()} units (${100 - percentage}% free)`,
-                        disabled: isFull,
-                      };
-                    })}
-                    value={selectedWarehouseId}
-                    onChange={setSelectedWarehouseId}
-                    searchable
-                    size="md"
-                  />
-
-                  {/* Warehouse capacity detail */}
-                  {selectedWarehouseId && (() => {
-                    const { used, total, available, percentage } = getWarehouseUsage(selectedWarehouseId);
-                    const incoming = Number(actualQuantity) || selectedProduction?.actual_quantity || 0;
-                    const afterStore = available - incoming;
-                    const isOverCapacity = afterStore < 0;
-
-                    return (
-                      <Paper withBorder p="md" radius="md" bg="var(--mantine-color-violet-light)">
-                        <Stack gap="xs">
-                          <Group justify="space-between">
-                            <Text size="sm" fw={600}>Capacity Overview</Text>
-                            <Badge color={percentage > 80 ? 'red' : percentage > 60 ? 'orange' : 'teal'} variant="light">
-                              {percentage}% used
-                            </Badge>
-                          </Group>
-                          <Progress
-                            value={percentage}
-                            color={percentage > 80 ? 'red' : percentage > 60 ? 'orange' : 'teal'}
-                            radius="md"
-                            size="lg"
-                          />
-                          <Group justify="space-between" mt={4}>
-                            <Text size="xs" c="dimmed">Used: {used.toLocaleString()} units</Text>
-                            <Text size="xs" c="dimmed">Total: {total.toLocaleString()} units</Text>
-                          </Group>
-                          <Divider />
-                          <Group gap="xs">
-                            <IconPackage size={14} />
-                            <Text size="sm">
-                              Storing <strong>{incoming} units</strong> →{' '}
-                              {isOverCapacity ? (
-                                <Text span c="red" fw={600}>Exceeds capacity by {Math.abs(afterStore)} units!</Text>
-                              ) : (
-                                <Text span c="teal" fw={600}>{afterStore.toLocaleString()} units remaining after store</Text>
-                              )}
-                            </Text>
-                          </Group>
-                          {isOverCapacity && (
-                            <Alert icon={<IconAlertCircle size={14} />} color="red" variant="light" py="xs">
-                              This warehouse does not have enough capacity. Please choose another warehouse or reduce the quantity.
-                            </Alert>
-                          )}
-                        </Stack>
-                      </Paper>
-                    );
-                  })()}
-
-                  <Group justify="flex-end">
+              {/* Quantity + Warehouse side by side */}
+              <Group align="flex-start" gap="xl" grow>
+                {/* Final Quantity */}
+                <Stack gap="xs">
+                  <Text fw={600} size="sm">Final Production Quantity</Text>
+                  <Group align="flex-end" gap="xs">
+                    <NumberInput
+                      label="Actual Quantity (units)"
+                      placeholder="e.g. 100"
+                      value={actualQuantity}
+                      onChange={setActualQuantity}
+                      min={0}
+                      required
+                      style={{ flex: 1 }}
+                    />
                     <Button
-                      leftSection={<IconBuildingWarehouse size={16} />}
-                      color="violet"
-                      loading={savingStock}
-                      disabled={!selectedWarehouseId}
-                      onClick={handleSaveToWarehouse}
+                      variant="light"
+                      color="blue"
+                      size="sm"
+                      onClick={handleSubmitActualQuantity}
+                      loading={updatingProduction}
+                      style={{ marginBottom: 1 }}
                     >
-                      Save to Warehouse
+                      Save
                     </Button>
                   </Group>
                 </Stack>
-              )}
+
+                {/* Warehouse Selector */}
+                <Stack gap="xs" style={{ flex: 1 }}>
+                  <Text fw={600} size="sm">Destination Warehouse</Text>
+                  {warehouses.length === 0 ? (
+                    <Alert icon={<IconAlertCircle size={16} />} color="orange" variant="light">
+                      No warehouses found. Please add warehouses in the Warehouse Module first.
+                    </Alert>
+                  ) : (
+                    <Select
+                      label="Select Warehouse"
+                      placeholder="Choose a warehouse..."
+                      data={warehouses.map((wh) => {
+                        const { available, percentage } = getWarehouseUsage(wh.id);
+                        const isFull = available <= 0;
+                        return {
+                          value: wh.id,
+                          label: `${wh.name} — ${available.toLocaleString()} units free (${100 - percentage}%)`,
+                          disabled: isFull,
+                        };
+                      })}
+                      value={selectedWarehouseId}
+                      onChange={setSelectedWarehouseId}
+                      searchable
+                    />
+                  )}
+                </Stack>
+              </Group>
+
+              {/* Capacity detail — appears when warehouse is selected */}
+              {selectedWarehouseId && (() => {
+                const { used, total, available, percentage } = getWarehouseUsage(selectedWarehouseId);
+                const incoming = Number(actualQuantity) || selectedProduction?.actual_quantity || 0;
+                const afterStore = available - incoming;
+                const isOverCapacity = afterStore < 0;
+
+                return (
+                  <Paper withBorder p="md" radius="md" bg="var(--mantine-color-violet-light)">
+                    <Stack gap="xs">
+                      <Group justify="space-between">
+                        <Text size="sm" fw={600}>Capacity Overview</Text>
+                        <Badge color={percentage > 80 ? 'red' : percentage > 60 ? 'orange' : 'teal'} variant="light">
+                          {percentage}% used
+                        </Badge>
+                      </Group>
+                      <Progress
+                        value={percentage}
+                        color={percentage > 80 ? 'red' : percentage > 60 ? 'orange' : 'teal'}
+                        radius="md"
+                        size="lg"
+                      />
+                      <Group justify="space-between" mt={4}>
+                        <Text size="xs" c="dimmed">Used: {used.toLocaleString()} units</Text>
+                        <Text size="xs" c="dimmed">Total: {total.toLocaleString()} units</Text>
+                      </Group>
+                      <Divider />
+                      <Group gap="xs">
+                        <IconPackage size={14} />
+                        <Text size="sm">
+                          Storing <strong>{incoming} units</strong> →{' '}
+                          {isOverCapacity ? (
+                            <Text span c="red" fw={600}>Exceeds capacity by {Math.abs(afterStore)} units!</Text>
+                          ) : (
+                            <Text span c="teal" fw={600}>{afterStore.toLocaleString()} units remaining after store</Text>
+                          )}
+                        </Text>
+                      </Group>
+                      {isOverCapacity && (
+                        <Alert icon={<IconAlertCircle size={14} />} color="red" variant="light" py="xs">
+                          This warehouse does not have enough capacity. Please choose another warehouse or reduce the quantity.
+                        </Alert>
+                      )}
+                    </Stack>
+                  </Paper>
+                );
+              })()}
+
+              {/* Action Button */}
+              <Group justify="flex-end">
+                <Button
+                  leftSection={<IconBuildingWarehouse size={16} />}
+                  color="violet"
+                  loading={savingStock}
+                  disabled={!selectedWarehouseId || !actualQuantity}
+                  onClick={handleSaveToWarehouse}
+                >
+                  Save to Warehouse
+                </Button>
+              </Group>
             </Stack>
           </Paper>
         )}
+
 
         {/* Empty State */}
         {!selectedProductionId && !productionsLoading && (
