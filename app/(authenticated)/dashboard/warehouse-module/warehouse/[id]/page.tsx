@@ -29,7 +29,7 @@ import {
 } from '@tabler/icons-react';
 import { useSetModuleTitle } from '@/lib/hooks/useSetModuleTitle';
 import { useRouter } from 'next/navigation';
-import type { Warehouse, RawMaterial, ProductStock, ColdStorageLog } from '@/types/sima-arome';
+import type { Warehouse, RawMaterial, ProductStock, ColdStorageLog, Product } from '@/types/sima-arome';
 
 // Coordinates preset for Surabaya & around
 const LOCATION_PRESETS = [
@@ -49,6 +49,7 @@ export default function WarehouseDetailPage({ params }: { params: Promise<{ id: 
   const [warehouse, setWarehouse] = useState<Warehouse | null>(null);
   const [materials, setMaterials] = useState<RawMaterial[]>([]);
   const [products, setProducts] = useState<ProductStock[]>([]);
+  const [productList, setProductList] = useState<Product[]>([]);
   const [tempLog, setTempLog] = useState<ColdStorageLog | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -65,20 +66,24 @@ export default function WarehouseDetailPage({ params }: { params: Promise<{ id: 
       setWarehouse(whObj);
 
       // Fetch all stocks and filter by this warehouse
-      const [rmRes, psRes] = await Promise.all([
+      const [rmRes, psRes, prodRes] = await Promise.all([
         fetch('/api/items/raw_materials'),
         fetch('/api/items/product_stocks'),
+        fetch('/api/items/products'),
       ]);
 
-      if (rmRes.ok && psRes.ok) {
+      if (rmRes.ok && psRes.ok && prodRes.ok) {
         const rmJson = await rmRes.json();
         const psJson = await psRes.json();
+        const prodJson = await prodRes.json();
 
         const rmList: RawMaterial[] = Array.isArray(rmJson.data) ? rmJson.data : (Array.isArray(rmJson) ? rmJson : []);
         const psList: ProductStock[] = Array.isArray(psJson.data) ? psJson.data : (Array.isArray(psJson) ? psJson : []);
+        const prods: Product[] = Array.isArray(prodJson.data) ? prodJson.data : (Array.isArray(prodJson) ? prodJson : []);
 
         setMaterials(rmList.filter((item) => item.warehouse_id === id));
         setProducts(psList.filter((item) => item.warehouse_id === id));
+        setProductList(prods);
       }
 
       // Fetch temperature log if present
@@ -389,7 +394,7 @@ export default function WarehouseDetailPage({ params }: { params: Promise<{ id: 
                               <ActionIcon
                                 variant="light"
                                 color="blue"
-                                onClick={() => router.push(`/dashboard/warehouse-module/product/${rm.id}`)}
+                                onClick={() => router.push(`/dashboard/warehouse-module/raw-material/${rm.id}`)}
                               >
                                 <IconEye size={16} />
                               </ActionIcon>
@@ -402,6 +407,9 @@ export default function WarehouseDetailPage({ params }: { params: Promise<{ id: 
                     {/* Render Product Stocks */}
                     {products.map((prod) => {
                       const qty = Number(prod.amount || 0);
+                      const matchedProduct = productList.find((p) => p.id === prod.product_id);
+                      const productName = matchedProduct ? matchedProduct.type : 'Finished Good Product';
+
                       return (
                         <Table.Tr key={prod.id}>
                           <Table.Td>
@@ -410,7 +418,7 @@ export default function WarehouseDetailPage({ params }: { params: Promise<{ id: 
                             </Badge>
                           </Table.Td>
                           <Table.Td>
-                            <Text fw={600} size="sm">Jasmine Perfume Product (Stock)</Text>
+                            <Text fw={600} size="sm">{productName}</Text>
                           </Table.Td>
                           <Table.Td>
                             <Badge color="teal" variant="outline" size="xs">Finished Product</Badge>
@@ -429,7 +437,6 @@ export default function WarehouseDetailPage({ params }: { params: Promise<{ id: 
                                 variant="light"
                                 color="blue"
                                 onClick={() => router.push(`/dashboard/warehouse-module/product/${prod.id}`)}
-                                disabled
                               >
                                 <IconEye size={16} />
                               </ActionIcon>
