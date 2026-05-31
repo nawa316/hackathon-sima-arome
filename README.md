@@ -10,8 +10,7 @@
 
 ## 🔑 Live Demo & Test Accounts
 
-Experience the full capabilities of SIMA AROME. Access the live platform here:
-👉 **[Live Demo: SIMA AROME ERP](https://main.d1fc34ifmgcyf4.amplifyapp.com/login)**
+Experience the full capabilities of SIMA AROME.
 
 Use the following test credentials to explore the system from different role perspectives. Each role has specific access restrictions and tailored dashboards:
 
