@@ -47,7 +47,7 @@ export default function DashboardLayoutWrapper({
       },
       {
         id: 'dashboard-scm',
-        label: 'Dashboard SCM',
+        label: 'Dashboard',
         icon: <IconLayoutDashboard size={20} />,
         href: '/dashboard/warehouse-module',
       },
@@ -86,8 +86,8 @@ export default function DashboardLayoutWrapper({
     // Set active state based on current pathname
     return filteredMenuItems.map((item) => ({
       ...item,
-      active: item.href === '/dashboard' 
-        ? pathname === '/dashboard' 
+      active: item.href === '/dashboard'
+        ? pathname === '/dashboard'
         : pathname === item.href || pathname.startsWith(item.href + '/'),
     }));
   }, [pathname]);

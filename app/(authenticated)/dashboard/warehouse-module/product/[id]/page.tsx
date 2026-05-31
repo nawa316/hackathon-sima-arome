@@ -93,7 +93,7 @@ export default function StockDetailPage({ params }: { params: Promise<{ id: stri
       }
     } catch (err) {
       console.error(err);
-      setError('Gagal memuat detail persediaan stok dari database DaaS.');
+      setError('Failed to load stock inventory details from the DaaS database.');
     } finally {
       setLoading(false);
     }
@@ -131,7 +131,7 @@ export default function StockDetailPage({ params }: { params: Promise<{ id: stri
           raw_material_id: id,
           checked_by: material.received_by, // using the initial receiver as reviewer
           qc_status: qcDecision,
-          qc_notes: qcNotes.trim() || `Material lulus pengujian QC standard.`,
+          qc_notes: qcNotes.trim() || `Material passed standard QC testing.`,
           created_at: new Date().toISOString(),
         }),
       });
@@ -146,7 +146,7 @@ export default function StockDetailPage({ params }: { params: Promise<{ id: stri
           raw_material_id: id,
           activity_type: 'STOCK_ADJUSTMENT',
           quantity: Number(material.weight_kg),
-          description: `Kendali Mutu (QC) diselesaikan. Hasil: ${qcDecision === 'PASSED' ? 'LULUS (QC_ACCEPTED)' : 'DITOLAK (QC_REJECTED)'}. Catatan: ${qcNotes.trim()}`,
+          description: `Quality Control (QC) completed. Result: ${qcDecision === 'PASSED' ? 'PASSED (QC_ACCEPTED)' : 'REJECTED (QC_REJECTED)'}. Notes: ${qcNotes.trim()}`,
           created_at: new Date().toISOString(),
           created_by: material.received_by,
         }),
@@ -165,8 +165,8 @@ export default function StockDetailPage({ params }: { params: Promise<{ id: stri
       });
 
       notifications.show({
-        title: 'QC Selesai',
-        message: `Inspeksi QC untuk Batch ${material.batch_code} telah terekam dengan sukses!`,
+        title: 'QC Completed',
+        message: `QC inspection for Batch ${material.batch_code} has been successfully recorded!`,
         color: qcDecision === 'PASSED' ? 'teal' : 'red',
       });
 
@@ -177,7 +177,7 @@ export default function StockDetailPage({ params }: { params: Promise<{ id: stri
       console.error(err);
       notifications.show({
         title: 'Error',
-        message: 'Gagal memperbarui status QC. Coba periksa koneksi data.',
+        message: 'Failed to update QC status. Please check your data connection.',
         color: 'red',
       });
     } finally {
@@ -187,7 +187,7 @@ export default function StockDetailPage({ params }: { params: Promise<{ id: stri
 
   const openQcModal = (decision: 'PASSED' | 'FAILED') => {
     setQcDecision(decision);
-    setQcNotes(decision === 'PASSED' ? 'Material lolos pengujian organoleptik aroma dan densitas.' : 'Material memiliki cacat aroma / kontaminasi zat cair.');
+    setQcNotes(decision === 'PASSED' ? 'Material passed organoleptic aroma and density testing.' : 'Material has aroma defects / liquid contamination.');
     setQcModalOpened(true);
   };
 
@@ -196,7 +196,7 @@ export default function StockDetailPage({ params }: { params: Promise<{ id: stri
       <Container size="xl" py="xl">
         <Stack align="center" justify="center" style={{ minHeight: '50vh' }}>
           <Loader size="xl" color="violet" />
-          <Text c="dimmed">Menghubungkan ke DaaS detail stok...</Text>
+          <Text c="dimmed">Connecting to stock details DaaS...</Text>
         </Stack>
       </Container>
     );
@@ -212,10 +212,10 @@ export default function StockDetailPage({ params }: { params: Promise<{ id: stri
             color="gray"
             onClick={() => router.push('/dashboard/warehouse-module/product')}
           >
-            Kembali ke Persediaan
+            Back to Inventory
           </Button>
-          <Alert icon={<IconAlertTriangle size={16} />} title="Perhatian" color="red">
-            {error || 'Data persediaan stok tidak dapat ditemukan.'}
+          <Alert icon={<IconAlertTriangle size={16} />} title="Warning" color="red">
+            {error || 'Stock inventory data could not be found.'}
           </Alert>
         </Stack>
       </Container>
@@ -235,8 +235,8 @@ export default function StockDetailPage({ params }: { params: Promise<{ id: stri
     : (lowerName.includes('fix') ? 'Fixative' : 'Solvent');
 
   // Dates (Simulated as requested)
-  const productionDate = new Date(new Date(material.received_at).getTime() - 1000 * 60 * 60 * 24 * 5).toLocaleDateString('id-ID', { dateStyle: 'medium' });
-  const expiredDate = new Date(new Date(material.received_at).getTime() + 1000 * 60 * 60 * 24 * 365).toLocaleDateString('id-ID', { dateStyle: 'medium' });
+  const productionDate = new Date(new Date(material.received_at).getTime() - 1000 * 60 * 60 * 24 * 5).toLocaleDateString('en-US', { dateStyle: 'medium' });
+  const expiredDate = new Date(new Date(material.received_at).getTime() + 1000 * 60 * 60 * 24 * 365).toLocaleDateString('en-US', { dateStyle: 'medium' });
 
   // Map stock status and timeline state
   let currentActiveTimeline = 0;
@@ -245,19 +245,19 @@ export default function StockDetailPage({ params }: { params: Promise<{ id: stri
 
   if (material.status === 'PENDING_QC') {
     currentActiveTimeline = 1;
-    qcStatusLabel = 'Pending QC (Menunggu Inspeksi)';
+    qcStatusLabel = 'Pending QC (Awaiting Inspection)';
     qcColor = 'orange';
   } else if (material.status === 'QC_ACCEPTED') {
     currentActiveTimeline = 3;
-    qcStatusLabel = 'Lolos QC (Accepted)';
+    qcStatusLabel = 'QC Accepted';
     qcColor = 'teal';
   } else if (material.status === 'QC_REJECTED') {
     currentActiveTimeline = 3;
-    qcStatusLabel = 'Ditolak QC (Rejected)';
+    qcStatusLabel = 'QC Rejected';
     qcColor = 'red';
   } else if (material.status === 'IN_PRODUCTION') {
     currentActiveTimeline = 3;
-    qcStatusLabel = 'Dalam Produksi';
+    qcStatusLabel = 'In Production';
     qcColor = 'blue';
   }
 
@@ -269,7 +269,7 @@ export default function StockDetailPage({ params }: { params: Promise<{ id: stri
           id: 'mov-init',
           activity_type: 'STOCK_IN' as const,
           quantity: qty,
-          description: `Penerimaan awal bahan baku Batch ${material.batch_code} di ${warehouseName}.`,
+          description: `Initial receipt of raw material Batch ${material.batch_code} at ${warehouseName}.`,
           created_at: material.received_at,
         }
       ];
@@ -285,7 +285,7 @@ export default function StockDetailPage({ params }: { params: Promise<{ id: stri
             color="violet"
             onClick={() => router.push('/dashboard/warehouse-module/product')}
           >
-            Kembali ke Daftar Stok
+            Back to Stock List
           </Button>
         </Group>
 
@@ -309,18 +309,18 @@ export default function StockDetailPage({ params }: { params: Promise<{ id: stri
 
         {/* Business Rules Alerts */}
         {material.status === 'QC_REJECTED' && (
-          <Alert icon={<IconAlertTriangle size={16} />} title="Material Ditolak Kendali Mutu" color="red" variant="filled">
-            Bahan baku ini dinyatakan <strong>REJECTED QC</strong>. Sesuai dengan aturan bisnis Sima Arôme, material ini <strong>tidak boleh digunakan</strong> dalam formulasi resep produksi parfum dan harus segera ditandai untuk pembuangan atau pengembalian vendor.
+          <Alert icon={<IconAlertTriangle size={16} />} title="Material Rejected by Quality Control" color="red" variant="filled">
+            This raw material is declared as <strong>REJECTED QC</strong>. In accordance with Sima Arôme's business rules, this material <strong>must not be used</strong> in fragrance production recipe formulations and must be immediately marked for disposal or vendor return.
           </Alert>
         )}
         {material.status === 'PENDING_QC' && (
-          <Alert icon={<IconAlertTriangle size={16} />} title="Inspeksi Kendali Mutu Diperlukan" color="orange">
-            Bahan baku ini sedang dalam status <strong>PENDING QC</strong>. Inspeksi fisik dan pengujian aroma laboratorium diperlukan sebelum material diizinkan masuk ke tangki produksi compounding.
+          <Alert icon={<IconAlertTriangle size={16} />} title="Quality Control Inspection Required" color="orange">
+            This raw material is currently in <strong>PENDING QC</strong> status. Physical inspection and laboratory aroma testing are required before the material is allowed into the compounding production tank.
           </Alert>
         )}
         {material.status === 'QC_ACCEPTED' && (
-          <Alert icon={<IconCheck size={16} />} title="Material Siap Digunakan" color="teal">
-            Bahan baku ini berstatus <strong>QC ACCEPTED</strong>. Material dalam kondisi prima dan diizinkan 100% untuk digunakan dalam resep compounding dan maceration produksi parfum.
+          <Alert icon={<IconCheck size={16} />} title="Material Ready for Use" color="teal">
+            This raw material has a <strong>QC ACCEPTED</strong> status. The material is in prime condition and is 100% approved for use in fragrance compounding and maceration production recipes.
           </Alert>
         )}
 
@@ -330,11 +330,11 @@ export default function StockDetailPage({ params }: { params: Promise<{ id: stri
           <Paper p="xl" radius="md" withBorder>
             <Stack gap="sm">
               <Title order={3} size="h4" style={{ fontFamily: 'var(--ds-font-display, inherit)' }}>
-                Spesifikasi & Informasi Stok
+                Specifications & Stock Information
               </Title>
               <Divider />
               <Group justify="space-between">
-                <Text size="sm" c="dimmed">Kategori Bahan:</Text>
+                <Text size="sm" c="dimmed">Material Category:</Text>
                 <Badge color="indigo" variant="light">{category}</Badge>
               </Group>
               <Group justify="space-between">
@@ -342,40 +342,40 @@ export default function StockDetailPage({ params }: { params: Promise<{ id: stri
                 <Text size="sm" fw={600}>{material.batch_code}</Text>
               </Group>
               <Group justify="space-between">
-                <Text size="sm" c="dimmed">Lokasi Gudang:</Text>
+                <Text size="sm" c="dimmed">Warehouse Location:</Text>
                 <Group gap="xs">
                   <IconBuildingWarehouse size={14} />
                   <Text size="sm" fw={600}>{warehouseName}</Text>
                 </Group>
               </Group>
               <Group justify="space-between">
-                <Text size="sm" c="dimmed">Kuantitas Tersimpan:</Text>
+                <Text size="sm" c="dimmed">Stored Quantity:</Text>
                 <Text size="sm" fw={700} c={qty < 100 ? 'orange' : 'teal'}>
                   {qty.toLocaleString()} Kg
                 </Text>
               </Group>
               
-              <Divider my="xs" label="Jadwal & Kedaluwarsa" labelPosition="center" />
+              <Divider my="xs" label="Schedules & Expiration" labelPosition="center" />
               <Group justify="space-between">
                 <Group gap="xs" c="dimmed">
                   <IconCalendar size={14} />
-                  <Text size="xs">Tanggal Produksi:</Text>
+                  <Text size="xs">Production Date:</Text>
                 </Group>
                 <Text size="xs" fw={600}>{productionDate}</Text>
               </Group>
               <Group justify="space-between">
                 <Group gap="xs" c="dimmed">
                   <IconCalendar size={14} />
-                  <Text size="xs">Tanggal Kedaluwarsa:</Text>
+                  <Text size="xs">Expiration Date:</Text>
                 </Group>
                 <Text size="xs" fw={600} c="red">{expiredDate}</Text>
               </Group>
               <Group justify="space-between">
                 <Group gap="xs" c="dimmed">
                   <IconUser size={14} />
-                  <Text size="xs">Diterima Oleh:</Text>
+                  <Text size="xs">Received By:</Text>
                 </Group>
-                <Text size="xs" fw={600}>Staff Gudang Sima Arôme</Text>
+                <Text size="xs" fw={600}>Sima Arôme Warehouse Staff</Text>
               </Group>
             </Stack>
           </Paper>
@@ -384,43 +384,43 @@ export default function StockDetailPage({ params }: { params: Promise<{ id: stri
           <Paper p="xl" radius="md" withBorder>
             <Stack gap="md" align="stretch">
               <Title order={3} size="h4" style={{ fontFamily: 'var(--ds-font-display, inherit)' }}>
-                Alur Quality Control (QC)
+                Quality Control (QC) Flow
               </Title>
               <Divider />
               
               <Timeline active={currentActiveTimeline} bulletSize={24} lineWidth={2}>
-                <Timeline.Item bullet={<IconCheck size={12} />} title="Stok Diterima">
-                  <Text size="xs" c="dimmed">Material tiba di dermaga gudang dan dicatat dalam sistem.</Text>
-                  <Text size="xxs" mt={4}>{new Date(material.received_at).toLocaleDateString('id-ID', { dateStyle: 'short' })}</Text>
+                <Timeline.Item bullet={<IconCheck size={12} />} title="Stock Received">
+                  <Text size="xs" c="dimmed">Material arrived at the warehouse dock and was recorded in the system.</Text>
+                  <Text size="xxs" mt={4}>{new Date(material.received_at).toLocaleDateString('en-US', { dateStyle: 'short' })}</Text>
                 </Timeline.Item>
 
                 <Timeline.Item bullet={<IconClock size={12} />} title="Pending QC">
-                  <Text size="xs" c="dimmed">Menunggu pemeriksaan fisik visual oleh tim Quality Control.</Text>
+                  <Text size="xs" c="dimmed">Awaiting visual physical inspection by the Quality Control team.</Text>
                 </Timeline.Item>
 
                 <Timeline.Item 
                   bullet={<IconClipboardCheck size={12} />} 
-                  title="Inspeksi QC"
+                  title="QC Inspection"
                   lineVariant={material.status === 'QC_REJECTED' ? 'dashed' : 'solid'}
                 >
-                  <Text size="xs" c="dimmed">Pemeriksaan densitas aromatis dan validasi kualitas.</Text>
+                  <Text size="xs" c="dimmed">Aromatic density check and quality validation.</Text>
                 </Timeline.Item>
 
                 <Timeline.Item 
                   bullet={material.status === 'QC_REJECTED' ? <IconX size={12} /> : <IconCheck size={12} />} 
-                  title="Selesai QC"
+                  title="QC Completed"
                   color={material.status === 'QC_REJECTED' ? 'red' : 'teal'}
                 >
                   {qcRecord ? (
                     <Stack gap="xxs" mt="xs" bg="gray.0" p="xs" style={{ borderRadius: 4 }}>
-                      <Text size="xs" fw={700}>Catatan Pemeriksa:</Text>
+                      <Text size="xs" fw={700}>Inspector Notes:</Text>
                       <Text size="xs" fs="italic" c="dimmed">"{qcRecord.qc_notes}"</Text>
                       <Text size="xxs" c="dimmed" mt={4}>
-                        Diperiksa pada: {new Date(qcRecord.created_at).toLocaleDateString('id-ID')}
+                        Inspected on: {new Date(qcRecord.created_at).toLocaleDateString('en-US')}
                       </Text>
                     </Stack>
                   ) : (
-                    <Text size="xs" c="dimmed">Material siap digunakan atau ditolak.</Text>
+                    <Text size="xs" c="dimmed">Material is ready to be used or rejected.</Text>
                   )}
                 </Timeline.Item>
               </Timeline>
@@ -428,14 +428,14 @@ export default function StockDetailPage({ params }: { params: Promise<{ id: stri
               {/* QC Interactive Action Buttons */}
               {material.status === 'PENDING_QC' && (
                 <Stack mt="md" gap="xs">
-                  <Divider label="Aksi Keputusan Inspeksi QC" labelPosition="center" />
+                  <Divider label="QC Inspection Decision Actions" labelPosition="center" />
                   <Group grow>
                     <Button
                       leftSection={<IconCheck size={16} />}
                       color="teal"
                       onClick={() => openQcModal('PASSED')}
                     >
-                      Lolos QC (Approve)
+                      Pass QC (Approve)
                     </Button>
                     <Button
                       leftSection={<IconX size={16} />}
@@ -443,7 +443,7 @@ export default function StockDetailPage({ params }: { params: Promise<{ id: stri
                       variant="outline"
                       onClick={() => openQcModal('FAILED')}
                     >
-                      Tolak QC (Reject)
+                      Reject QC
                     </Button>
                   </Group>
                 </Stack>
@@ -458,18 +458,18 @@ export default function StockDetailPage({ params }: { params: Promise<{ id: stri
             <Group gap="xs">
               <IconActivity size={20} color="violet" />
               <Title order={3} size="h4" style={{ fontFamily: 'var(--ds-font-display, inherit)' }}>
-                Histori Pergerakan Stok (Stock Movements)
+                Stock Movement History
               </Title>
             </Group>
-            <Text size="xs" c="dimmed">Catatan kronologis mutasi keluar-masuk barang, penyesuaian volume, dan audit stok fisik.</Text>
+            <Text size="xs" c="dimmed">Chronological record of stock ins and outs, volume adjustments, and physical stock audits.</Text>
 
             <Table striped highlightOnHover verticalSpacing="sm">
               <Table.Thead>
                 <Table.Tr>
-                  <Table.Th style={{ width: 150 }}>Tanggal & Waktu</Table.Th>
-                  <Table.Th style={{ width: 180 }}>Tipe Aktivitas</Table.Th>
-                  <Table.Th style={{ width: 140 }}>Kuantitas</Table.Th>
-                  <Table.Th>Deskripsi Transaksi</Table.Th>
+                  <Table.Th style={{ width: 150 }}>Date & Time</Table.Th>
+                  <Table.Th style={{ width: 180 }}>Activity Type</Table.Th>
+                  <Table.Th style={{ width: 140 }}>Quantity</Table.Th>
+                  <Table.Th>Transaction Description</Table.Th>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
@@ -483,7 +483,7 @@ export default function StockDetailPage({ params }: { params: Promise<{ id: stri
                     <Table.Tr key={mov.id || idx}>
                       <Table.Td>
                         <Text size="xs">
-                          {new Date(mov.created_at).toLocaleString('id-ID', {
+                          {new Date(mov.created_at).toLocaleString('en-US', {
                             dateStyle: 'short',
                             timeStyle: 'short',
                           })}
@@ -517,7 +517,7 @@ export default function StockDetailPage({ params }: { params: Promise<{ id: stri
         onClose={() => setQcModalOpened(false)}
         title={
           <Title order={3} size="h4" c={qcDecision === 'PASSED' ? 'teal' : 'red'}>
-            {qcDecision === 'PASSED' ? 'Konfirmasi Lolos Uji QC' : 'Konfirmasi Tolak Uji QC'}
+            {qcDecision === 'PASSED' ? 'Confirm QC Pass' : 'Confirm QC Reject'}
           </Title>
         }
         centered
@@ -525,12 +525,12 @@ export default function StockDetailPage({ params }: { params: Promise<{ id: stri
       >
         <Stack gap="md">
           <Text size="sm">
-            Anda akan menyelesaikan inspeksi kendali mutu untuk batch <strong>{material.batch_code}</strong> ({material.material_name}).
+            You are about to complete the quality control inspection for batch <strong>{material.batch_code}</strong> ({material.material_name}).
           </Text>
 
           <Textarea
-            label="Catatan Inspeksi QC"
-            placeholder="Tuliskan detail pemeriksaan hasil uji aroma, densitas, atau cacat visual..."
+            label="QC Inspection Notes"
+            placeholder="Write detailed inspection results for aroma, density, or visual defects..."
             required
             minRows={3}
             value={qcNotes}
@@ -539,14 +539,14 @@ export default function StockDetailPage({ params }: { params: Promise<{ id: stri
 
           <Group justify="flex-end" mt="md">
             <Button variant="outline" color="gray" onClick={() => setQcModalOpened(false)}>
-              Batal
+              Cancel
             </Button>
             <Button
               color={qcDecision === 'PASSED' ? 'teal' : 'red'}
               onClick={handleQcSubmit}
               loading={submitting}
             >
-              Simpan Keputusan QC
+              Save QC Decision
             </Button>
           </Group>
         </Stack>

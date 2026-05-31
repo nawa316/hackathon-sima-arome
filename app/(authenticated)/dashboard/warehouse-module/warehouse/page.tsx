@@ -75,9 +75,9 @@ export default function WarehousesPage() {
       status: 'ACTIVE' as 'ACTIVE' | 'INACTIVE',
     },
     validate: {
-      code: (value) => (value.trim().length < 3 ? 'Kode minimal 3 karakter' : null),
-      name: (value) => (value.trim().length < 3 ? 'Nama minimal 3 karakter' : null),
-      capacity: (value) => (value <= 0 ? 'Kapasitas harus lebih besar dari 0' : null),
+      code: (value) => (value.trim().length < 3 ? 'Code must be at least 3 characters' : null),
+      name: (value) => (value.trim().length < 3 ? 'Name must be at least 3 characters' : null),
+      capacity: (value) => (value <= 0 ? 'Capacity must be greater than 0' : null),
     },
   });
 
@@ -91,9 +91,9 @@ export default function WarehousesPage() {
       status: 'ACTIVE' as 'ACTIVE' | 'INACTIVE',
     },
     validate: {
-      code: (value) => (value.trim().length < 3 ? 'Kode minimal 3 karakter' : null),
-      name: (value) => (value.trim().length < 3 ? 'Nama minimal 3 karakter' : null),
-      capacity: (value) => (value <= 0 ? 'Kapasitas harus lebih besar dari 0' : null),
+      code: (value) => (value.trim().length < 3 ? 'Code must be at least 3 characters' : null),
+      name: (value) => (value.trim().length < 3 ? 'Name must be at least 3 characters' : null),
+      capacity: (value) => (value <= 0 ? 'Capacity must be greater than 0' : null),
     },
   });
 
@@ -110,7 +110,7 @@ export default function WarehousesPage() {
       ]);
 
       if (!whRes.ok || !rmRes.ok || !psRes.ok) {
-        throw new Error('Gagal memuat data dari database DaaS');
+        throw new Error('Failed to load data from DaaS database');
       }
 
       const whJson = await whRes.json();
@@ -122,7 +122,7 @@ export default function WarehousesPage() {
       setProductStocks(Array.isArray(psJson.data) ? psJson.data : (Array.isArray(psJson) ? psJson : []));
     } catch (err) {
       console.error(err);
-      setError('Gagal sinkronisasi data dengan server DaaS. Periksa koneksi backend Anda.');
+      setError('Failed to synchronize data with DaaS server. Check your backend connection.');
     } finally {
       setLoading(false);
     }
@@ -171,8 +171,8 @@ export default function WarehousesPage() {
       });
 
       notifications.show({
-        title: 'Sukses',
-        message: `Gudang ${values.name} berhasil ditambahkan ke master data!`,
+        title: 'Success',
+        message: `Warehouse ${values.name} successfully added to master data!`,
         color: 'teal',
       });
 
@@ -183,7 +183,7 @@ export default function WarehousesPage() {
       console.error(err);
       notifications.show({
         title: 'Error',
-        message: 'Gagal membuat gudang baru. Silakan coba kembali.',
+        message: 'Failed to create a new warehouse. Please try again.',
         color: 'red',
       });
     } finally {
@@ -222,8 +222,8 @@ export default function WarehousesPage() {
       });
 
       notifications.show({
-        title: 'Sukses',
-        message: `Gudang ${values.name} berhasil diperbarui!`,
+        title: 'Success',
+        message: `Warehouse ${values.name} successfully updated!`,
         color: 'teal',
       });
 
@@ -233,7 +233,7 @@ export default function WarehousesPage() {
       console.error(err);
       notifications.show({
         title: 'Error',
-        message: 'Gagal memperbarui data gudang. Coba periksa koneksi.',
+        message: 'Failed to update warehouse data. Please check connection.',
         color: 'red',
       });
     } finally {
@@ -265,8 +265,8 @@ export default function WarehousesPage() {
       });
 
       notifications.show({
-        title: 'Sukses',
-        message: `Gudang ${selectedWarehouse.name} berhasil dihapus.`,
+        title: 'Success',
+        message: `Warehouse ${selectedWarehouse.name} successfully deleted.`,
         color: 'teal',
       });
 
@@ -277,7 +277,7 @@ export default function WarehousesPage() {
       console.error(err);
       notifications.show({
         title: 'Error',
-        message: 'Gagal menghapus gudang. Gudang mungkin memiliki relasi dengan stok material.',
+        message: 'Failed to delete warehouse. Warehouse may have relations with material stock.',
         color: 'red',
       });
     } finally {
@@ -320,7 +320,7 @@ export default function WarehousesPage() {
       <Container size="xl" py="xl">
         <Stack align="center" justify="center" style={{ minHeight: '50vh' }}>
           <Loader size="xl" color="violet" />
-          <Text c="dimmed">Menghubungkan ke master data gudang DaaS...</Text>
+          <Text c="dimmed">Connecting to DaaS warehouse master data...</Text>
         </Stack>
       </Container>
     );
@@ -333,16 +333,16 @@ export default function WarehousesPage() {
         <Group justify="space-between" align="flex-end">
           <div>
             <Title order={1} style={{ fontFamily: 'var(--ds-font-display, inherit)', fontWeight: 700 }}>
-              Master Data Gudang
+              Warehouse Master Data
             </Title>
-            <Text c="dimmed">Kelola master data pergudangan cold storage dan kapasitas alokasi penyimpanan</Text>
+            <Text c="dimmed">Manage cold storage warehousing master data and storage allocation capacity</Text>
           </div>
           <Button
             leftSection={<IconPlus size={16} />}
             color="violet"
             onClick={() => setCreateOpened(true)}
           >
-            Tambah Gudang
+            Add Warehouse
           </Button>
         </Group>
 
@@ -356,18 +356,18 @@ export default function WarehousesPage() {
         <Paper p="md" radius="md" withBorder>
           <Group gap="md">
             <TextInput
-              placeholder="Cari kode atau nama gudang..."
+              placeholder="Search warehouse code or name..."
               leftSection={<IconSearch size={16} />}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.currentTarget.value)}
               style={{ flex: 1 }}
             />
             <Select
-              placeholder="Status Gudang"
+              placeholder="Warehouse Status"
               data={[
-                { value: 'ALL', label: 'Semua Status' },
-                { value: 'ACTIVE', label: 'Aktif' },
-                { value: 'INACTIVE', label: 'Nonaktif' },
+                { value: 'ALL', label: 'All Statuses' },
+                { value: 'ACTIVE', label: 'Active' },
+                { value: 'INACTIVE', label: 'Inactive' },
               ]}
               value={statusFilter}
               onChange={setStatusFilter}
@@ -381,9 +381,9 @@ export default function WarehousesPage() {
           {filteredWarehouses.length === 0 ? (
             <Stack align="center" py="xl" gap="xs">
               <IconBuildingWarehouse size={48} color="dimmed" />
-              <Text fw={600}>Gudang Tidak Ditemukan</Text>
+              <Text fw={600}>Warehouse Not Found</Text>
               <Text size="sm" c="dimmed">
-                Tidak ada gudang yang cocok dengan kriteria filter pencarian Anda.
+                No warehouses match your search filter criteria.
               </Text>
             </Stack>
           ) : (
@@ -391,19 +391,19 @@ export default function WarehousesPage() {
               <Table striped highlightOnHover verticalSpacing="sm">
                 <Table.Thead>
                   <Table.Tr>
-                    <Table.Th style={{ width: 140 }}>Kode Gudang</Table.Th>
-                    <Table.Th>Nama Gudang</Table.Th>
-                    <Table.Th>Desain Wilayah / Koordinat</Table.Th>
-                    <Table.Th style={{ width: 150 }}>Kapasitas (Kg)</Table.Th>
-                    <Table.Th style={{ width: 150 }}>Jumlah Item Stok</Table.Th>
+                    <Table.Th style={{ width: 140 }}>Warehouse Code</Table.Th>
+                    <Table.Th>Warehouse Name</Table.Th>
+                    <Table.Th>Region Design / Coordinates</Table.Th>
+                    <Table.Th style={{ width: 150 }}>Capacity (Kg)</Table.Th>
+                    <Table.Th style={{ width: 150 }}>Stock Item Count</Table.Th>
                     <Table.Th style={{ width: 120 }}>Status</Table.Th>
-                    <Table.Th style={{ width: 150 }}>Aksi</Table.Th>
+                    <Table.Th style={{ width: 150 }}>Action</Table.Th>
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
                   {filteredWarehouses.map((wh) => {
                     const preset = LOCATION_PRESETS.find(p => p.value === String(wh.location));
-                    const locationLabel = preset ? preset.label : `Koordinat Surabaya (${wh.location})`;
+                    const locationLabel = preset ? preset.label : `Surabaya Coordinates (${wh.location})`;
                     const stockCount = getStockCountForWarehouse(wh.id);
 
                     return (
@@ -426,7 +426,7 @@ export default function WarehousesPage() {
                         </Table.Td>
                         <Table.Td>
                           <Badge color={stockCount > 0 ? 'blue' : 'gray'} variant="outline">
-                            {stockCount} Item
+                            {stockCount} {stockCount === 1 ? 'Item' : 'Items'}
                           </Badge>
                         </Table.Td>
                         <Table.Td>
@@ -434,12 +434,12 @@ export default function WarehousesPage() {
                             color={(wh.status ?? 'ACTIVE') === 'ACTIVE' ? 'teal' : 'red'}
                             variant="light"
                           >
-                            {(wh.status ?? 'ACTIVE') === 'ACTIVE' ? 'Aktif' : 'Nonaktif'}
+                            {(wh.status ?? 'ACTIVE') === 'ACTIVE' ? 'Active' : 'Inactive'}
                           </Badge>
                         </Table.Td>
                         <Table.Td>
                           <Group gap="xs" wrap="nowrap">
-                            <Tooltip label="Lihat Detail Gudang">
+                            <Tooltip label="View Warehouse Details">
                               <ActionIcon
                                 variant="light"
                                 color="blue"
@@ -457,7 +457,7 @@ export default function WarehousesPage() {
                                 <IconEdit size={16} />
                               </ActionIcon>
                             </Tooltip>
-                            <Tooltip label="Hapus Gudang">
+                            <Tooltip label="Delete Warehouse">
                               <ActionIcon
                                 variant="light"
                                 color="red"
@@ -483,52 +483,52 @@ export default function WarehousesPage() {
       <Modal
         opened={createOpened}
         onClose={() => setCreateOpened(false)}
-        title={<Title order={3} size="h4">Tambah Master Gudang Baru</Title>}
+        title={<Title order={3} size="h4">Add New Master Warehouse</Title>}
         centered
         radius="md"
       >
         <form onSubmit={createForm.onSubmit(handleCreateWarehouse)}>
           <Stack gap="md">
             <TextInput
-              label="Kode Gudang"
-              placeholder="Contoh: WH-ALPHA"
+              label="Warehouse Code"
+              placeholder="Example: WH-ALPHA"
               required
               {...createForm.getInputProps('code')}
             />
             <TextInput
-              label="Nama Gudang"
-              placeholder="Contoh: Cold Storage Surabaya-1"
+              label="Warehouse Name"
+              placeholder="Example: Cold Storage Surabaya-1"
               required
               {...createForm.getInputProps('name')}
             />
             <Select
-              label="Wilayah Lokasi"
+              label="Location Region"
               data={LOCATION_PRESETS}
               required
               {...createForm.getInputProps('location')}
             />
             <NumberInput
-              label="Kapasitas Penyimpanan (Kg)"
-              placeholder="Contoh: 10000"
+              label="Storage Capacity (Kg)"
+              placeholder="Example: 10000"
               min={1}
               required
               {...createForm.getInputProps('capacity')}
             />
             <Select
-              label="Status Aktif"
+              label="Active Status"
               data={[
-                { value: 'ACTIVE', label: 'Aktif (Menerima Stok)' },
-                { value: 'INACTIVE', label: 'Nonaktif (Tutup Operasional)' },
+                { value: 'ACTIVE', label: 'Active (Receiving Stock)' },
+                { value: 'INACTIVE', label: 'Inactive (Operational Closure)' },
               ]}
               required
               {...createForm.getInputProps('status')}
             />
             <Group justify="flex-end" mt="md">
               <Button variant="outline" color="gray" onClick={() => setCreateOpened(false)}>
-                Batal
+                Cancel
               </Button>
               <Button type="submit" color="violet" loading={submitting}>
-                Simpan
+                Save
               </Button>
             </Group>
           </Stack>
@@ -539,53 +539,53 @@ export default function WarehousesPage() {
       <Modal
         opened={editOpened}
         onClose={() => setEditOpened(false)}
-        title={<Title order={3} size="h4">Perbarui Master Data Gudang</Title>}
+        title={<Title order={3} size="h4">Update Warehouse Master Data</Title>}
         centered
         radius="md"
       >
         <form onSubmit={editForm.onSubmit(handleUpdateWarehouse)}>
           <Stack gap="md">
             <TextInput
-              label="Kode Gudang"
+              label="Warehouse Code"
               placeholder="WH-001"
               required
               disabled
               {...editForm.getInputProps('code')}
             />
             <TextInput
-              label="Nama Gudang"
-              placeholder="Contoh: Cold Storage Surabaya-1"
+              label="Warehouse Name"
+              placeholder="Example: Cold Storage Surabaya-1"
               required
               {...editForm.getInputProps('name')}
             />
             <Select
-              label="Wilayah Lokasi"
+              label="Location Region"
               data={LOCATION_PRESETS}
               required
               {...editForm.getInputProps('location')}
             />
             <NumberInput
-              label="Kapasitas Penyimpanan (Kg)"
+              label="Storage Capacity (Kg)"
               placeholder="10000"
               min={1}
               required
               {...editForm.getInputProps('capacity')}
             />
             <Select
-              label="Status Aktif"
+              label="Active Status"
               data={[
-                { value: 'ACTIVE', label: 'Aktif' },
-                { value: 'INACTIVE', label: 'Nonaktif' },
+                { value: 'ACTIVE', label: 'Active' },
+                { value: 'INACTIVE', label: 'Inactive' },
               ]}
               required
               {...editForm.getInputProps('status')}
             />
             <Group justify="flex-end" mt="md">
               <Button variant="outline" color="gray" onClick={() => setEditOpened(false)}>
-                Batal
+                Cancel
               </Button>
               <Button type="submit" color="violet" loading={submitting}>
-                Perbarui
+                Update
               </Button>
             </Group>
           </Stack>
@@ -596,23 +596,23 @@ export default function WarehousesPage() {
       <Modal
         opened={deleteOpened}
         onClose={() => setDeleteOpened(false)}
-        title={<Title order={3} size="h4" c="red">Konfirmasi Hapus Gudang</Title>}
+        title={<Title order={3} size="h4" c="red">Confirm Delete Warehouse</Title>}
         centered
         radius="md"
       >
         <Stack gap="md">
           <Text size="sm">
-            Apakah Anda yakin ingin menghapus gudang <strong>{selectedWarehouse?.name}</strong> ({selectedWarehouse?.code})?
+            Are you sure you want to delete warehouse <strong>{selectedWarehouse?.name}</strong> ({selectedWarehouse?.code})?
           </Text>
           <Text size="xs" c="red" bg="red.0" p="xs" style={{ borderRadius: 4 }}>
-            Tindakan ini permanen dan tidak dapat dibatalkan. Gudang hanya dapat dihapus jika tidak menyimpan item stok sama sekali.
+            This action is permanent and cannot be undone. Warehouses can only be deleted if they do not store any stock items.
           </Text>
           <Group justify="flex-end" mt="md">
             <Button variant="outline" color="gray" onClick={() => setDeleteOpened(false)}>
-              Batal
+              Cancel
             </Button>
             <Button color="red" onClick={handleDeleteWarehouse} loading={submitting}>
-              Hapus Permanen
+              Permanently Delete
             </Button>
           </Group>
         </Stack>

@@ -32,10 +32,10 @@ import type { RawMaterial, Warehouse } from '@/types/sima-arome';
 
 // Categories preset based on fragrance manufacturing materials
 const CATEGORY_PRESETS = [
-  { value: 'ALL', label: 'Semua Kategori' },
-  { value: 'Essential Oil', label: 'Minyak Atsiri (Essential Oil)' },
-  { value: 'Fixative', label: 'Pengikat (Fixative)' },
-  { value: 'Solvent', label: 'Pelarut (Solvent)' },
+  { value: 'ALL', label: 'All Categories' },
+  { value: 'Essential Oil', label: 'Essential Oil' },
+  { value: 'Fixative', label: 'Fixative' },
+  { value: 'Solvent', label: 'Solvent' },
   { value: 'Absolutes', label: 'Absolutes & Resins' },
 ];
 
@@ -66,7 +66,7 @@ export default function StockManagementPage() {
       ]);
 
       if (!rmRes.ok || !whRes.ok) {
-        throw new Error('Gagal memuat data inventori dari server DaaS.');
+        throw new Error('Failed to load inventory data from the DaaS server.');
       }
 
       const rmJson = await rmRes.json();
@@ -76,7 +76,7 @@ export default function StockManagementPage() {
       setWarehouses(Array.isArray(whJson.data) ? whJson.data : (Array.isArray(whJson) ? whJson : []));
     } catch (err) {
       console.error(err);
-      setError('Gagal sinkronisasi data stok. Silakan periksa koneksi backend DaaS.');
+      setError('Failed to synchronize stock data. Please check the DaaS backend connection.');
     } finally {
       setLoading(false);
     }
@@ -161,7 +161,7 @@ export default function StockManagementPage() {
       <Container size="xl" py="xl">
         <Stack align="center" justify="center" style={{ minHeight: '50vh' }}>
           <Loader size="xl" color="violet" />
-          <Text c="dimmed">Menghubungkan ke DaaS persediaan stok...</Text>
+          <Text c="dimmed">Connecting to stock inventory DaaS...</Text>
         </Stack>
       </Container>
     );
@@ -174,9 +174,9 @@ export default function StockManagementPage() {
         <Group justify="space-between" align="flex-end">
           <div>
             <Title order={1} style={{ fontFamily: 'var(--ds-font-display, inherit)', fontWeight: 700 }}>
-              Manajemen Stok Gudang
+              Warehouse Stock Management
             </Title>
-            <Text c="dimmed">Monitor ketersediaan stok bahan baku, tingkat ambang batas aman, dan integrasi kendali mutu</Text>
+            <Text c="dimmed">Monitor raw material stock availability, safety thresholds, and quality control integration</Text>
           </div>
         </Group>
 
@@ -191,21 +191,21 @@ export default function StockManagementPage() {
           <Stack gap="sm">
             <Group gap="xs" c="violet">
               <IconFilter size={18} />
-              <Text size="sm" fw={700}>Filter Pencarian Persediaan</Text>
+              <Text size="sm" fw={700}>Inventory Search Filters</Text>
             </Group>
             
             <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md">
               <TextInput
-                placeholder="Cari nama bahan atau batch code..."
+                placeholder="Search material name or batch code..."
                 leftSection={<IconSearch size={16} />}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.currentTarget.value)}
               />
 
               <Select
-                placeholder="Gudang Lokasi"
+                placeholder="Warehouse Location"
                 data={[
-                  { value: 'ALL', label: 'Semua Gudang' },
+                  { value: 'ALL', label: 'All Warehouses' },
                   ...warehouses.map((wh) => ({ value: wh.id, label: wh.name })),
                 ]}
                 value={warehouseFilter}
@@ -213,22 +213,22 @@ export default function StockManagementPage() {
               />
 
               <Select
-                placeholder="Kategori Bahan"
+                placeholder="Material Category"
                 data={CATEGORY_PRESETS}
                 value={categoryFilter}
                 onChange={setCategoryFilter}
               />
 
               <Select
-                placeholder="Status Ketersediaan"
+                placeholder="Availability Status"
                 data={[
-                  { value: 'ALL', label: 'Semua Status' },
-                  { value: 'Available', label: 'Tersedia (Available)' },
-                  { value: 'Low Stock', label: 'Stok Menipis (Low)' },
-                  { value: 'Out of Stock', label: 'Stok Kosong (Out)' },
-                  { value: 'PENDING_QC', label: 'Menunggu QC (Pending)' },
-                  { value: 'QC_ACCEPTED', label: 'Lolos QC (Accepted)' },
-                  { value: 'QC_REJECTED', label: 'Ditolak QC (Rejected)' },
+                  { value: 'ALL', label: 'All Statuses' },
+                  { value: 'Available', label: 'Available' },
+                  { value: 'Low Stock', label: 'Low Stock' },
+                  { value: 'Out of Stock', label: 'Out of Stock' },
+                  { value: 'PENDING_QC', label: 'Pending QC' },
+                  { value: 'QC_ACCEPTED', label: 'QC Accepted' },
+                  { value: 'QC_REJECTED', label: 'QC Rejected' },
                 ]}
                 value={statusFilter}
                 onChange={setStatusFilter}
@@ -242,9 +242,9 @@ export default function StockManagementPage() {
           {filteredMaterials.length === 0 ? (
             <Stack align="center" py="xl" gap="xs">
               <IconPackages size={48} color="dimmed" />
-              <Text fw={600}>Stok Tidak Ditemukan</Text>
+              <Text fw={600}>Stock Not Found</Text>
               <Text size="sm" c="dimmed">
-                Tidak ada material tersimpan yang cocok dengan kriteria filter pencarian Anda.
+                No stored materials match your search filter criteria.
               </Text>
             </Stack>
           ) : (
@@ -253,13 +253,13 @@ export default function StockManagementPage() {
                 <Table.Thead>
                   <Table.Tr>
                     <Table.Th style={{ width: 150 }}>Batch Code</Table.Th>
-                    <Table.Th>Nama Bahan Baku</Table.Th>
-                    <Table.Th style={{ width: 160 }}>Kategori</Table.Th>
-                    <Table.Th>Lokasi Gudang</Table.Th>
-                    <Table.Th style={{ width: 140 }}>Kuantitas</Table.Th>
-                    <Table.Th style={{ width: 120 }}>Satuan</Table.Th>
-                    <Table.Th style={{ width: 180 }}>Status Ketersediaan</Table.Th>
-                    <Table.Th style={{ width: 80 }}>Detail</Table.Th>
+                    <Table.Th>Raw Material Name</Table.Th>
+                    <Table.Th style={{ width: 160 }}>Category</Table.Th>
+                    <Table.Th>Warehouse Location</Table.Th>
+                    <Table.Th style={{ width: 140 }}>Quantity</Table.Th>
+                    <Table.Th style={{ width: 120 }}>Unit</Table.Th>
+                    <Table.Th style={{ width: 180 }}>Availability Status</Table.Th>
+                    <Table.Th style={{ width: 80 }}>Action</Table.Th>
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
@@ -305,7 +305,7 @@ export default function StockManagementPage() {
                           </Badge>
                         </Table.Td>
                         <Table.Td>
-                          <Tooltip label="Lihat Kartu Stok & QC">
+                          <Tooltip label="View Stock Card & QC">
                             <ActionIcon
                               variant="light"
                               color="blue"

@@ -47,7 +47,7 @@ export default function WarehouseModuleLayout({
       },
       {
         id: 'dashboard',
-        label: 'Dashboard SCM',
+        label: 'Dashboard',
         icon: <IconLayoutDashboard size={20} />,
         href: '/dashboard/warehouse-module',
       },
