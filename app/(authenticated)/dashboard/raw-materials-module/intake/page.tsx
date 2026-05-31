@@ -21,7 +21,6 @@ import {
   Divider,
   ActionIcon,
 } from '@mantine/core';
-import { DateInput } from '@mantine/dates';
 import {
   IconSearch,
   IconPlus,
@@ -712,17 +711,15 @@ export default function RawMaterialIntakePage() {
             </Group>
 
             <Group grow style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}>
-              <DateInput
+              <TextInput
                 label="Intake Date"
-                placeholder="Select Date"
-                value={formReceivedAt && !isNaN(new Date(formReceivedAt).getTime()) ? new Date(formReceivedAt) : null}
-                onChange={(d: any) => {
-                  const formatted = d && !isNaN(new Date(d).getTime()) ? new Date(d).toISOString().split('T')[0] : null;
-                  setFormReceivedAt(formatted);
-                  if (formatted) setFormErrors(prev => ({ ...prev, receivedAt: false }));
+                type="date"
+                value={formReceivedAt ?? ''}
+                onChange={(e) => {
+                  const val = e.currentTarget.value || null;
+                  setFormReceivedAt(val);
+                  if (val) setFormErrors(prev => ({ ...prev, receivedAt: false }));
                 }}
-                popoverProps={{ withinPortal: true, zIndex: 10000 }}
-                leftSection={<IconCalendar size={16} />}
                 required
                 error={formErrors.receivedAt ? 'Intake Date is required' : null}
                 style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}
@@ -730,16 +727,11 @@ export default function RawMaterialIntakePage() {
                   input: { fontFamily: 'var(--ds-font-sans, sans-serif)' }
                 }}
               />
-              <DateInput
+              <TextInput
                 label="Expiration Date"
-                placeholder="Select Date"
-                value={formExpiredDate && !isNaN(new Date(formExpiredDate).getTime()) ? new Date(formExpiredDate) : null}
-                onChange={(d: any) => {
-                  const formatted = d && !isNaN(new Date(d).getTime()) ? new Date(d).toISOString().split('T')[0] : null;
-                  setFormExpiredDate(formatted);
-                }}
-                popoverProps={{ withinPortal: true, zIndex: 10000 }}
-                leftSection={<IconCalendar size={16} />}
+                type="date"
+                value={formExpiredDate ?? ''}
+                onChange={(e) => setFormExpiredDate(e.currentTarget.value || null)}
                 style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}
                 styles={{
                   input: { fontFamily: 'var(--ds-font-sans, sans-serif)' }
