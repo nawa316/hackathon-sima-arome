@@ -49,6 +49,26 @@ const formatFallbackValue = (val: string | number | null | undefined) => {
   return val;
 };
 
+// Helper to generate consecutive SCM supplier codes (SUP-001, SUP-002, etc.)
+const generateNextSupplierCode = (currentSuppliers: Supplier[]): string => {
+  let maxNum = 0;
+  currentSuppliers.forEach(sup => {
+    const code = sup.code;
+    if (code && typeof code === 'string') {
+      const match = code.match(/^SUP-(\d+)$/i);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNum) {
+          maxNum = num;
+        }
+      }
+    }
+  });
+  const nextNum = maxNum + 1;
+  const padded = String(nextNum).padStart(3, '0');
+  return `SUP-${padded}`;
+};
+
 export default function SupplierManagementPage() {
   useSetModuleTitle('Supplier Directory');
 
@@ -93,9 +113,8 @@ export default function SupplierManagementPage() {
   }, []);
 
   const handleOpenModal = () => {
-    const randomSuffix = Math.floor(100 + Math.random() * 900);
     setEditingItem(null);
-    setFormCode(`SUP-${randomSuffix}`);
+    setFormCode(generateNextSupplierCode(suppliers));
     setFormName('');
     setFormContactPerson('');
     setFormPhoneNumber('');
@@ -487,6 +506,7 @@ export default function SupplierManagementPage() {
                 value={formCode}
                 onChange={(e) => setFormCode(e.currentTarget.value)}
                 required
+                disabled
                 style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}
                 styles={{
                   input: { fontFamily: 'var(--ds-font-sans, sans-serif)' }

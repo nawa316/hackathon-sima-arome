@@ -93,6 +93,7 @@ export default function RawMaterialIntakeDetailPage({
   // Edit Form Fields
   const [formIntakeNumber, setFormIntakeNumber] = useState('');
   const [formSupplierId, setFormSupplierId] = useState<string>('');
+  const [formProductSupplierId, setFormProductSupplierId] = useState<string>('');
   const [formOfferId, setFormOfferId] = useState<string>('');
   const [formBatchCode, setFormBatchCode] = useState('');
   const [formMaterialName, setFormMaterialName] = useState('');
@@ -240,20 +241,15 @@ export default function RawMaterialIntakeDetailPage({
     return map;
   }, [productSuppliers]);
 
-  const filteredOffers = React.useMemo(() => {
-    if (!formSupplierId) return [];
-    return offers
-      .filter(o => o.supplier_id === formSupplierId)
-      .map(o => {
-        const prodName = productSupplierMap.get(o.product_supplier_id) || 'Raw Material';
-        return {
-          value: o.id,
-          label: `${prodName} (Rp ${o.price.toLocaleString('id-ID')}/${o.lead_time} days)`,
-          price: o.price,
-          name: prodName
-        };
-      });
-  }, [formSupplierId, offers, productSupplierMap]);
+  // Master catalog options for Offered Material dropdown
+  const catalogOptions = React.useMemo(() => {
+    return productSuppliers.map(ps => ({
+      value: ps.id,
+      label: `${ps.name} (Rp ${ps.price.toLocaleString('id-ID')}/${ps.unit})`,
+      price: ps.price,
+      name: ps.name
+    }));
+  }, [productSuppliers]);
 
   const handleOpenEditModal = () => {
     if (!material) return;
@@ -270,33 +266,68 @@ export default function RawMaterialIntakeDetailPage({
     setFormNotes(material.notes || '');
     setFormWarehouseId(material.warehouse_id || '');
     setFormTotalPrice(material.total_price || 0);
+
+    // Resolve formProductSupplierId when opening edit modal
+    let psId = '';
+    if (material.offer_id) {
+      const foundOffer = offers.find(o => o.id === material.offer_id);
+      if (foundOffer) psId = foundOffer.product_supplier_id;
+    }
+    if (!psId && material.material_name) {
+      const foundPS = productSuppliers.find(ps => ps.name === material.material_name);
+      if (foundPS) psId = foundPS.id;
+    }
+    setFormProductSupplierId(psId);
+
     setEditModalOpened(true);
   };
 
-  const handleOfferChange = (offerId: string | null) => {
-    if (!offerId) return;
-    setFormOfferId(offerId);
-    const selected = filteredOffers.find(o => o.value === offerId);
-    if (selected) {
-      setFormMaterialName(selected.name);
-      const computedPrice = selected.price * formWeightKg;
-      setFormTotalPrice(computedPrice);
+  const handleCatalogChange = (prodId: string | null) => {
+    if (!prodId) {
+      setFormProductSupplierId('');
+      setFormOfferId('');
+      setFormMaterialName('');
+      setFormTotalPrice(0);
+      return;
+    }
+
+    setFormProductSupplierId(prodId);
+    
+    // Find if there is an existing negotiated Offer for this supplier and product
+    const foundOffer = offers.find(o => o.supplier_id === formSupplierId && o.product_supplier_id === prodId);
+    const prod = productSuppliers.find(p => p.id === prodId);
+    
+    if (foundOffer) {
+      setFormOfferId(foundOffer.id);
+      setFormMaterialName(prod ? prod.name : 'Raw Material');
+      setFormTotalPrice(foundOffer.price * formWeightKg);
+    } else {
+      setFormOfferId(''); // Null if no customized offer
+      setFormMaterialName(prod ? prod.name : 'Raw Material');
+      setFormTotalPrice((prod ? prod.price : 0) * formWeightKg);
     }
   };
 
   const handleWeightChange = (val: number | string) => {
     const qty = Number(val) || 0;
     setFormWeightKg(qty);
-    const selected = filteredOffers.find(o => o.value === formOfferId);
-    if (selected) {
-      setFormTotalPrice(selected.price * qty);
+    
+    const foundOffer = offers.find(o => o.supplier_id === formSupplierId && o.product_supplier_id === formProductSupplierId);
+    const prod = productSuppliers.find(p => p.id === formProductSupplierId);
+    
+    if (foundOffer) {
+      setFormTotalPrice(foundOffer.price * qty);
+    } else if (prod) {
+      setFormTotalPrice(prod.price * qty);
+    } else {
+      setFormTotalPrice(0);
     }
   };
 
   const handleUpdateIntake = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formSupplierId || !formOfferId || !formBatchCode || !formWarehouseId) {
+    if (!formSupplierId || !formProductSupplierId || !formBatchCode || !formWarehouseId) {
       notifications.show({
         title: 'Incomplete Form',
         message: 'Please fill in all required fields.',
@@ -310,7 +341,7 @@ export default function RawMaterialIntakeDetailPage({
 
       const payload = {
         supplier_id: formSupplierId,
-        offer_id: formOfferId,
+        offer_id: formOfferId || null,
         warehouse_id: formWarehouseId,
         intake_number: formIntakeNumber,
         batch_code: formBatchCode,
@@ -725,6 +756,7 @@ export default function RawMaterialIntakeDetailPage({
               value={formSupplierId}
               onChange={(val) => {
                 setFormSupplierId(val || '');
+                setFormProductSupplierId('');
                 setFormOfferId('');
               }}
               required
@@ -739,9 +771,9 @@ export default function RawMaterialIntakeDetailPage({
               label="Offered Material"
               placeholder={formSupplierId ? "Select Material" : "Select Supplier First"}
               disabled={!formSupplierId}
-              data={filteredOffers}
-              value={formOfferId}
-              onChange={handleOfferChange}
+              data={catalogOptions}
+              value={formProductSupplierId}
+              onChange={handleCatalogChange}
               required
               style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}
               styles={{

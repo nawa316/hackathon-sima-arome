@@ -20,6 +20,7 @@ import {
   Divider,
   Card,
   Tooltip,
+  NumberInput,
 } from '@mantine/core';
 import {
   IconAward,
@@ -231,20 +232,29 @@ export default function SupplierEvaluationPage() {
     [1, 1, 1, 1, 1],
   ]);
 
-  // 2. Qualitative Supplier Scores (Prices and Service) that users can adjust
-  const [supplierQualitativeRatings, setSupplierQualitativeRatings] = useState<Record<string, { price: number; service: number }>>({});
+  // 2. Supplier Scores (Quality, Accuracy, Timeliness, Price, Service) that users can adjust manually
+  const [supplierQualitativeRatings, setSupplierQualitativeRatings] = useState<Record<string, {
+    quality: number | string;
+    accuracy: number | string;
+    timeliness: number | string;
+    price: number | string;
+    service: number | string;
+  }>>({});
 
   const fetchData = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const [supData, rmData, offersData, psData] = await Promise.all([
+      const [supData, rmData, offersData, psData, weightsData] = await Promise.all([
         daasAPI.getItems<Supplier>('suppliers'),
         daasAPI.getItems<RawMaterial>('raw_materials'),
         daasAPI.getItems<Offer>('offers'),
         daasAPI.getItems<ProductSupplier>('product_suppliers'),
+        daasAPI.getItems<any>('ahp_weights'),
       ]);
+
+      console.log('[AHP Debug] Suppliers fetched from DaaS:', supData);
 
       const activeSuppliers = (Array.isArray(supData) ? supData : []).filter(s => s.status !== 'INACTIVE');
       setSuppliers(activeSuppliers);
@@ -252,12 +262,21 @@ export default function SupplierEvaluationPage() {
       setOffers(Array.isArray(offersData) ? offersData : []);
       setProductSuppliers(Array.isArray(psData) ? psData : []);
 
-      // Initialize qualitative sliders for each supplier
-      const initRatings: Record<string, { price: number; service: number }> = {};
+      // Initialize manual ratings from database values!
+      const initRatings: Record<string, {
+        quality: number | string;
+        accuracy: number | string;
+        timeliness: number | string;
+        price: number | string;
+        service: number | string;
+      }> = {};
       activeSuppliers.forEach(sup => {
         initRatings[sup.id] = {
-          price: 80,
-          service: sup.favorite ? 90 : 75,
+          quality: sup.ahp_quality != null ? sup.ahp_quality : '',
+          accuracy: sup.ahp_accuracy != null ? sup.ahp_accuracy : '',
+          timeliness: sup.ahp_timeliness != null ? sup.ahp_timeliness : '',
+          price: sup.ahp_price != null ? sup.ahp_price : '',
+          service: sup.ahp_service != null ? sup.ahp_service : '',
         };
       });
       setSupplierQualitativeRatings(initRatings);
@@ -309,8 +328,12 @@ export default function SupplierEvaluationPage() {
     return map;
   }, [offers]);
 
-  // Handle Qualitative Slider Adjustments
-  const handleRatingChange = (supId: string, key: 'price' | 'service', val: number) => {
+  // Handle Qualitative/Manual Slider Adjustments
+  const handleRatingChange = (
+    supId: string,
+    key: 'quality' | 'accuracy' | 'timeliness' | 'price' | 'service',
+    val: string | number
+  ) => {
     setSupplierQualitativeRatings(prev => ({
       ...prev,
       [supId]: {
@@ -337,53 +360,21 @@ export default function SupplierEvaluationPage() {
 
     return eligibleSuppliers
       .map(sup => {
-        // Query cargo deliveries (scoped to selected material if filter active)
-        const deliveries = rawMaterials.filter(item => {
-          const belongsToSupplier =
-            item.supplier_id === sup.id ||
-            (item.offer_id && offerToSupplierMap.get(item.offer_id) === sup.id);
-          if (!belongsToSupplier) return false;
-          if (!selectedMaterialId) return true;
-          // When a material filter is active, further restrict to that material's offers
-          const offerForMaterial = offers.find(
-            o => o.id === item.offer_id && o.product_supplier_id === selectedMaterialId
-          );
-          return !!offerForMaterial || item.offer_id === null; // include direct supplier_id records
-        });
-
-        const totalDeliveries = deliveries.length;
-        const accepted = deliveries.filter(item => item.status === 'QC_ACCEPTED' || item.status === 'IN_PRODUCTION').length;
-        const rejected = deliveries.filter(item => item.status === 'QC_REJECTED').length;
-
-        // C1: Product Quality — ratio of accepted / total QC-reviewed batches (live DB data)
-        const qualityScore = totalDeliveries > 0 ? (accepted / totalDeliveries) * 100 : 100;
-
-        // C2: Delivery Accuracy — penalise rejections (live DB data)
-        const accuracyScore = totalDeliveries > 0
-          ? Math.max(0, 100 - (rejected / totalDeliveries) * 50)
-          : 100;
-
-        // C3: Delivery Timeliness — derived from offers.lead_time (best available proxy)
-        //     Shorter lead time → higher timeliness score; floor at 40
-        const supOffers = offers.filter(o => {
-          if (o.supplier_id !== sup.id) return false;
-          if (selectedMaterialId) return o.product_supplier_id === selectedMaterialId;
-          return true;
-        });
-        const avgLeadTime = supOffers.length > 0
-          ? supOffers.reduce((sum, o) => sum + o.lead_time, 0) / supOffers.length
-          : 5;
-        const timelinessScore = Math.max(40, 100 - avgLeadTime * 5);
-
-        // C4 & C5: Qualitative sliders (price & service responsiveness)
-        const ratings = supplierQualitativeRatings[sup.id] || { price: 80, service: 75 };
+        // C1 to C5 are manually adjustable scores from the sliders
+        const ratings = supplierQualitativeRatings[sup.id] || {
+          quality: '',
+          accuracy: '',
+          timeliness: '',
+          price: '',
+          service: '',
+        };
 
         const scores: SupplierScoreInput = {
-          productQuality: qualityScore,
-          deliveryAccuracy: accuracyScore,
-          deliveryTimeliness: timelinessScore,
-          priceCompetitiveness: ratings.price,
-          serviceResponsiveness: ratings.service,
+          productQuality: ratings.quality !== '' && ratings.quality !== undefined && ratings.quality !== null ? Number(ratings.quality) : 0,
+          deliveryAccuracy: ratings.accuracy !== '' && ratings.accuracy !== undefined && ratings.accuracy !== null ? Number(ratings.accuracy) : 0,
+          deliveryTimeliness: ratings.timeliness !== '' && ratings.timeliness !== undefined && ratings.timeliness !== null ? Number(ratings.timeliness) : 0,
+          priceCompetitiveness: ratings.price !== '' && ratings.price !== undefined && ratings.price !== null ? Number(ratings.price) : 0,
+          serviceResponsiveness: ratings.service !== '' && ratings.service !== undefined && ratings.service !== null ? Number(ratings.service) : 0,
         };
 
         const finalScore = calculateSupplierScore(scores, ahpResult.weights);
@@ -399,7 +390,7 @@ export default function SupplierEvaluationPage() {
       })
       .sort((a, b) => b.finalScore - a.finalScore)
       .map((item, idx) => ({ ...item, rank: idx + 1 }));
-  }, [suppliers, selectedMaterialId, offers, rawMaterials, offerToSupplierMap, supplierQualitativeRatings, ahpResult.weights]);
+  }, [suppliers, selectedMaterialId, offers, supplierQualitativeRatings, ahpResult.weights]);
 
   // Dynamic data for Radar Chart
   const radarChartData = React.useMemo(() => {
@@ -435,44 +426,105 @@ export default function SupplierEvaluationPage() {
     return val;
   };
 
+  // Color helper based on dynamic scoring ranges
+  const getScoreColor = (score: number | string | undefined | null): string => {
+    const num = score !== '' && score !== undefined && score !== null ? Number(score) : 0;
+    if (num === 0) return '#adb5bd'; // light gray for empty inputs
+    if (num <= 40) return '#f03e3e';
+    if (num <= 79) return '#e67700';
+    return '#1e5b3a';
+  };
+
   // Save AHP Decision handler
-  const handleSaveDecision = () => {
-    const selectedMaterial = productSuppliers.find(ps => ps.id === selectedMaterialId);
-    const payload = {
-      timestamp: new Date().toISOString(),
-      material: selectedMaterial ? { id: selectedMaterial.id, name: selectedMaterial.name } : 'All Materials',
-      ahpWeights: {
+  const handleSaveDecision = async () => {
+    try {
+      const selectedMaterial = productSuppliers.find(ps => ps.id === selectedMaterialId);
+      const payload = {
+        timestamp: new Date().toISOString(),
+        material: selectedMaterial ? { id: selectedMaterial.id, name: selectedMaterial.name } : 'All Materials',
+        ahpWeights: {
+          quality_c1: ahpResult.weights[0],
+          accuracy_c2: ahpResult.weights[1],
+          timeliness_c3: ahpResult.weights[2],
+          price_c4: ahpResult.weights[3],
+          service_c5: ahpResult.weights[4],
+        },
+        consistencyRatio: ahpResult.consistencyRatio,
+        isConsistent: ahpResult.isConsistent,
+        ranking: rankedSuppliers.map(s => ({
+          rank: s.rank,
+          supplierId: s.id,
+          supplierName: s.name,
+          supplierCode: s.code,
+          finalScore: Math.round(s.finalScore * 100) / 100,
+          recommendation: s.recommendation,
+          scores: {
+            quality: Math.round(s.scores.productQuality),
+            accuracy: Math.round(s.scores.deliveryAccuracy),
+            timeliness: Math.round(s.scores.deliveryTimeliness),
+            price: Math.round(s.scores.priceCompetitiveness),
+            service: Math.round(s.scores.serviceResponsiveness),
+          },
+        })),
+      };
+
+      // 1. Save global weights to ahp_weights collection in DaaS (UPSERT)
+      const weightsPayload = {
+        id: 'global_weights',
         quality_c1: ahpResult.weights[0],
         accuracy_c2: ahpResult.weights[1],
         timeliness_c3: ahpResult.weights[2],
         price_c4: ahpResult.weights[3],
         service_c5: ahpResult.weights[4],
-      },
-      consistencyRatio: ahpResult.consistencyRatio,
-      isConsistent: ahpResult.isConsistent,
-      ranking: rankedSuppliers.map(s => ({
-        rank: s.rank,
-        supplierId: s.id,
-        supplierName: s.name,
-        supplierCode: s.code,
-        finalScore: Math.round(s.finalScore * 100) / 100,
-        recommendation: s.recommendation,
-        scores: {
-          quality: Math.round(s.scores.productQuality),
-          accuracy: Math.round(s.scores.deliveryAccuracy),
-          timeliness: Math.round(s.scores.deliveryTimeliness),
-          price: Math.round(s.scores.priceCompetitiveness),
-          service: Math.round(s.scores.serviceResponsiveness),
-        },
-      })),
-    };
-    console.log('[AHP Decision Saved]', JSON.stringify(payload, null, 2));
-    notifications.show({
-      title: 'AHP Decision Saved',
-      message: `Ranked ${rankedSuppliers.length} supplier(s). Winner: ${rankedSuppliers[0]?.name ?? '—'}. Check console for full payload.`,
-      color: 'teal',
-      icon: <IconDeviceFloppy size={16} />,
-    });
+        consistency_ratio: ahpResult.consistencyRatio,
+      };
+
+      try {
+        await daasAPI.createItem('ahp_weights', weightsPayload);
+      } catch {
+        try {
+          await daasAPI.updateItem('ahp_weights', 'global_weights', weightsPayload);
+        } catch (err) {
+          console.error('Failed to update AHP weights:', err);
+        }
+      }
+
+      // 2. Save each supplier's ratings back to DaaS (statis, UPSERT)
+      await Promise.all(
+        suppliers.map(async (sup) => {
+          const ratings = supplierQualitativeRatings[sup.id] || {
+            quality: '',
+            accuracy: '',
+            timeliness: '',
+            price: '',
+            service: '',
+          };
+          
+          await daasAPI.updateItem('suppliers', sup.id, {
+            ahp_quality: ratings.quality,
+            ahp_accuracy: ratings.accuracy,
+            ahp_timeliness: ratings.timeliness,
+            ahp_price: ratings.price,
+            ahp_service: ratings.service,
+          });
+        })
+      );
+
+      console.log('[AHP Decision Saved]', JSON.stringify(payload, null, 2));
+      notifications.show({
+        title: 'AHP Decision Saved',
+        message: `AHP criteria weights and supplier ratings successfully stored in the database! Winner: ${rankedSuppliers[0]?.name ?? '—'}.`,
+        color: 'teal',
+        icon: <IconCheck size={16} />,
+      });
+    } catch (err) {
+      console.error(err);
+      notifications.show({
+        title: 'Save Failed',
+        message: 'A database error occurred while saving AHP decisions.',
+        color: 'red'
+      });
+    }
   };
 
   const handleExportReport = () => {
@@ -526,96 +578,302 @@ export default function SupplierEvaluationPage() {
           </Group>
         </Paper>
 
-        <Grid gutter="lg" align="stretch">
+        {/* Section Atas (Full Width): Matrix Card and Weights Results Card */}
+        <Stack gap="lg">
+          {/* Matrix Card */}
+          <Paper p="xl" radius="md" withBorder>
+            <Group gap="xs" mb="sm">
+              <IconScale size={20} color="#1e5b3a" />
+              <Title order={3} style={{ fontFamily: 'var(--ds-font-subheader)', color: '#1e5b3a' }}>
+                Criteria Pairwise Comparison Matrix
+              </Title>
+            </Group>
+            <Text size="xs" c="dimmed" mb="lg" style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}>
+              Set comparative importance weight of row vs column (1: Equal, 3: Moderate, 5: Strong, 7: Very Strong, 9: Absolute)
+            </Text>
 
-          {/* Column Left: Comparison Matrix & Weights — 8/12 cols */}
+            <Table.ScrollContainer minWidth={600}>
+              <Table withTableBorder withColumnBorders verticalSpacing="xs">
+                <Table.Thead>
+                  <Table.Tr style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}>
+                    <Table.Th style={{ width: 120, fontFamily: 'var(--ds-font-sans, sans-serif)' }}>Criteria</Table.Th>
+                    <Table.Th style={{ fontSize: 11, textAlign: 'center', fontFamily: 'var(--ds-font-sans, sans-serif)' }}>Quality (C1)</Table.Th>
+                    <Table.Th style={{ fontSize: 11, textAlign: 'center', fontFamily: 'var(--ds-font-sans, sans-serif)' }}>Accuracy (C2)</Table.Th>
+                    <Table.Th style={{ fontSize: 11, textAlign: 'center', fontFamily: 'var(--ds-font-sans, sans-serif)' }}>Timeliness (C3)</Table.Th>
+                    <Table.Th style={{ fontSize: 11, textAlign: 'center', fontFamily: 'var(--ds-font-sans, sans-serif)' }}>Price (C4)</Table.Th>
+                    <Table.Th style={{ fontSize: 11, textAlign: 'center', fontFamily: 'var(--ds-font-sans, sans-serif)' }}>Service (C5)</Table.Th>
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {matrix.map((rowArr, rIdx) => {
+                    const criteriaLabels = [
+                      'Quality (C1)',
+                      'Accuracy (C2)',
+                      'Timeliness (C3)',
+                      'Price (C4)',
+                      'Service (C5)',
+                    ];
+
+                    return (
+                      <Table.Tr key={rIdx}>
+                        <Table.Td style={{ fontWeight: 700, fontSize: 11, fontFamily: 'var(--ds-font-sans, sans-serif)' }}>{criteriaLabels[rIdx]}</Table.Td>
+                        {rowArr.map((val, cIdx) => {
+                          // Diagonal cells are locked at 1
+                          if (rIdx === cIdx) {
+                            return (
+                              <Table.Td key={cIdx} style={{ backgroundColor: '#f8f9fa', textAlign: 'center', fontWeight: 'bold' }}>
+                                1
+                              </Table.Td>
+                            );
+                          }
+
+                          // Lower-left triangle is display only (reciprocals)
+                          if (rIdx > cIdx) {
+                            const reciprocalVal = val < 1 ? `1/${Math.round(1 / val)}` : `${Math.round(val)}`;
+                            return (
+                              <Table.Td key={cIdx} style={{ backgroundColor: '#f8f9fa', textAlign: 'center', fontSize: 11, color: '#868e96' }}>
+                                {val < 1 ? reciprocalVal : val.toFixed(2)}
+                              </Table.Td>
+                            );
+                          }
+
+                          // Upper-right triangle is select editable
+                          return (
+                            <Table.Td key={cIdx} p="2">
+                              <Select
+                                value={String(matrix[rIdx][cIdx])}
+                                onChange={(v) => handleMatrixCellChange(rIdx, cIdx, v)}
+                                data={COMPARISON_OPTIONS}
+                                size="xs"
+                                variant="unstyled"
+                                styles={{
+                                  input: {
+                                    textAlign: 'center',
+                                    fontSize: '11px',
+                                    fontWeight: 600,
+                                    color: '#1e5b3a',
+                                    backgroundColor: '#ebf7f0',
+                                    borderRadius: '4px',
+                                    height: '28px',
+                                    fontFamily: 'var(--ds-font-sans, sans-serif)'
+                                  },
+                                  dropdown: {
+                                    fontFamily: 'var(--ds-font-sans, sans-serif)'
+                                  }
+                                }}
+                              />
+                            </Table.Td>
+                          );
+                        })}
+                      </Table.Tr>
+                    );
+                  })}
+                </Table.Tbody>
+              </Table>
+            </Table.ScrollContainer>
+          </Paper>
+
+          {/* Weights Results Card */}
+          <Paper p="xl" radius="md" withBorder>
+             <Title order={3} mb="md" style={{ fontFamily: 'var(--ds-font-subheader)', color: '#1e5b3a' }}>
+              Criteria Priority Weights Results
+            </Title>
+            <Divider mb="lg" />
+
+            <Stack gap="md">
+              {(() => {
+                const labels = [
+                  'Product Quality (C1)',
+                  'Delivery Accuracy (C2)',
+                  'Delivery Timeliness (C3)',
+                  'Price Competitiveness (C4)',
+                  'Service Responsiveness (C5)',
+                ];
+
+                return labels.map((lbl, idx) => {
+                  const weightPct = Math.round(ahpResult.weights[idx] * 100);
+                  return (
+                    <div key={idx}>
+                      <Group justify="space-between" mb="3">
+                        <Text size="xs" fw={700} c="var(--ds-gray-700)">{lbl}</Text>
+                        <Text size="xs" fw={800} c="#1e5b3a">{weightPct}%</Text>
+                      </Group>
+                      <div style={{ height: 10, width: '100%', backgroundColor: '#e9ecef', borderRadius: 5, overflow: 'hidden' }}>
+                        <div 
+                          style={{ 
+                            height: '100%', 
+                            width: `${weightPct}%`, 
+                            backgroundColor: '#1e5b3a',
+                            transition: 'width 0.5s ease'
+                          }} 
+                        />
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
+
+              {/* Consistency Ratio Audit Alert */}
+              {ahpResult.isConsistent ? (
+                <Alert icon={<IconCheck size={16} />} title="Consistent Comparison" color="teal">
+                  Your pairwise comparison matrix has a valid consistency ratio (CR = {ahpResult.consistencyRatio.toFixed(3)} &lt; 0.1). Priority weights are ready for decision-making.
+                </Alert>
+              ) : (
+                <Alert icon={<IconAlertTriangle size={16} />} title="Inconsistent Comparison!" color="orange">
+                  The pairwise comparison matrix exceeds the consistency threshold (CR = {ahpResult.consistencyRatio.toFixed(3)} &ge; 0.1). Please adjust some ratings to ensure logical consistency.
+                </Alert>
+              )}
+            </Stack>
+          </Paper>
+        </Stack>
+
+        {/* Section Bawah (Split 2 Kolom): Ratings Table (Kiri) and Radar Chart (Kanan) */}
+        <Grid gutter="lg" align="stretch">
+          {/* Column Left: Manual Supplier Performance Ratings — 8/12 cols */}
           <Grid.Col span={{ base: 12, lg: 8 }}>
-          <Stack gap="lg">
-            {/* Matrix Card */}
-            <Paper p="xl" radius="md" withBorder>
+            <Paper p="xl" radius="md" withBorder style={{ height: '100%' }}>
               <Group gap="xs" mb="sm">
-                <IconScale size={20} color="#1e5b3a" />
+                <IconUsers size={20} color="#1e5b3a" />
                 <Title order={3} style={{ fontFamily: 'var(--ds-font-subheader)', color: '#1e5b3a' }}>
-                  Criteria Pairwise Comparison Matrix
+                  Manual Supplier Performance Ratings
                 </Title>
               </Group>
               <Text size="xs" c="dimmed" mb="lg" style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}>
-                Set comparative importance weight of row vs column (1: Equal, 3: Moderate, 5: Strong, 7: Very Strong, 9: Absolute)
+                All performance criteria are fully adjustable. Enter numbers from 1-100 to evaluate each supplier manually:
               </Text>
 
               <Table.ScrollContainer minWidth={600}>
-                <Table withTableBorder withColumnBorders verticalSpacing="xs">
+                <Table striped highlightOnHover verticalSpacing="xs">
                   <Table.Thead>
                     <Table.Tr style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}>
-                      <Table.Th style={{ width: 120, fontFamily: 'var(--ds-font-sans, sans-serif)' }}>Criteria</Table.Th>
-                      <Table.Th style={{ fontSize: 11, textAlign: 'center', fontFamily: 'var(--ds-font-sans, sans-serif)' }}>Quality (C1)</Table.Th>
-                      <Table.Th style={{ fontSize: 11, textAlign: 'center', fontFamily: 'var(--ds-font-sans, sans-serif)' }}>Accuracy (C2)</Table.Th>
-                      <Table.Th style={{ fontSize: 11, textAlign: 'center', fontFamily: 'var(--ds-font-sans, sans-serif)' }}>Timeliness (C3)</Table.Th>
-                      <Table.Th style={{ fontSize: 11, textAlign: 'center', fontFamily: 'var(--ds-font-sans, sans-serif)' }}>Price (C4)</Table.Th>
-                      <Table.Th style={{ fontSize: 11, textAlign: 'center', fontFamily: 'var(--ds-font-sans, sans-serif)' }}>Service (C5)</Table.Th>
+                      <Table.Th style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}>Supplier Name</Table.Th>
+                      <Table.Th style={{ width: 110, textAlign: 'center', fontFamily: 'var(--ds-font-sans, sans-serif)' }}>Quality (C1)</Table.Th>
+                      <Table.Th style={{ width: 110, textAlign: 'center', fontFamily: 'var(--ds-font-sans, sans-serif)' }}>Accuracy (C2)</Table.Th>
+                      <Table.Th style={{ width: 110, textAlign: 'center', fontFamily: 'var(--ds-font-sans, sans-serif)' }}>Timeliness (C3)</Table.Th>
+                      <Table.Th style={{ width: 110, textAlign: 'center', fontFamily: 'var(--ds-font-sans, sans-serif)' }}>Price (C4)</Table.Th>
+                      <Table.Th style={{ width: 110, textAlign: 'center', fontFamily: 'var(--ds-font-sans, sans-serif)' }}>Service (C5)</Table.Th>
                     </Table.Tr>
                   </Table.Thead>
                   <Table.Tbody>
-                    {matrix.map((rowArr, rIdx) => {
-                      const criteriaLabels = [
-                        'Quality (C1)',
-                        'Accuracy (C2)',
-                        'Timeliness (C3)',
-                        'Price (C4)',
-                        'Service (C5)',
-                      ];
+                    {suppliers.map(sup => {
+                      const ratings = supplierQualitativeRatings[sup.id] || {
+                        quality: '',
+                        accuracy: '',
+                        timeliness: '',
+                        price: '',
+                        service: '',
+                      };
 
                       return (
-                        <Table.Tr key={rIdx}>
-                          <Table.Td style={{ fontWeight: 700, fontSize: 11, fontFamily: 'var(--ds-font-sans, sans-serif)' }}>{criteriaLabels[rIdx]}</Table.Td>
-                          {rowArr.map((val, cIdx) => {
-                            // Diagonal cells are locked at 1
-                            if (rIdx === cIdx) {
-                              return (
-                                <Table.Td key={cIdx} style={{ backgroundColor: '#f8f9fa', textAlign: 'center', fontWeight: 'bold' }}>
-                                  1
-                                </Table.Td>
-                              );
-                            }
+                        <Table.Tr key={sup.id}>
+                          <Table.Td style={{ fontWeight: 700, fontFamily: 'var(--ds-font-sans, sans-serif)', color: 'var(--ds-primary, #1e5b3a)', verticalAlign: 'middle' }}>
+                            {sup.name}
+                          </Table.Td>
+                          
+                          {/* Quality (C1) */}
+                          <Table.Td p="2" style={{ verticalAlign: 'middle' }}>
+                            <NumberInput
+                              min={1}
+                              max={100}
+                              value={ratings.quality}
+                              onChange={(val) => handleRatingChange(sup.id, 'quality', val)}
+                              size="xs"
+                              placeholder="0"
+                              styles={{
+                                input: {
+                                  textAlign: 'center',
+                                  fontFamily: 'var(--ds-font-sans, sans-serif)',
+                                  borderColor: getScoreColor(ratings.quality),
+                                  color: getScoreColor(ratings.quality),
+                                  fontWeight: 700
+                                }
+                              }}
+                            />
+                          </Table.Td>
 
-                            // Lower-left triangle is display only (reciprocals)
-                            if (rIdx > cIdx) {
-                              const reciprocalVal = val < 1 ? `1/${Math.round(1 / val)}` : `${Math.round(val)}`;
-                              return (
-                                <Table.Td key={cIdx} style={{ backgroundColor: '#f8f9fa', textAlign: 'center', fontSize: 11, color: '#868e96' }}>
-                                  {val < 1 ? reciprocalVal : val.toFixed(2)}
-                                </Table.Td>
-                              );
-                            }
+                          {/* Accuracy (C2) */}
+                          <Table.Td p="2" style={{ verticalAlign: 'middle' }}>
+                            <NumberInput
+                              min={1}
+                              max={100}
+                              value={ratings.accuracy}
+                              onChange={(val) => handleRatingChange(sup.id, 'accuracy', val)}
+                              size="xs"
+                              placeholder="0"
+                              styles={{
+                                input: {
+                                  textAlign: 'center',
+                                  fontFamily: 'var(--ds-font-sans, sans-serif)',
+                                  borderColor: getScoreColor(ratings.accuracy),
+                                  color: getScoreColor(ratings.accuracy),
+                                  fontWeight: 700
+                                }
+                              }}
+                            />
+                          </Table.Td>
 
-                            // Upper-right triangle is select editable
-                            return (
-                              <Table.Td key={cIdx} p="2">
-                                <Select
-                                  value={String(matrix[rIdx][cIdx])}
-                                  onChange={(v) => handleMatrixCellChange(rIdx, cIdx, v)}
-                                  data={COMPARISON_OPTIONS}
-                                  size="xs"
-                                  variant="unstyled"
-                                  styles={{
-                                    input: {
-                                      textAlign: 'center',
-                                      fontSize: '11px',
-                                      fontWeight: 600,
-                                      color: '#1e5b3a',
-                                      backgroundColor: '#ebf7f0',
-                                      borderRadius: '4px',
-                                      height: '28px',
-                                      fontFamily: 'var(--ds-font-sans, sans-serif)'
-                                    },
-                                    dropdown: {
-                                      fontFamily: 'var(--ds-font-sans, sans-serif)'
-                                    }
-                                  }}
-                                />
-                              </Table.Td>
-                            );
-                          })}
+                          {/* Timeliness (C3) */}
+                          <Table.Td p="2" style={{ verticalAlign: 'middle' }}>
+                            <NumberInput
+                              min={1}
+                              max={100}
+                              value={ratings.timeliness}
+                              onChange={(val) => handleRatingChange(sup.id, 'timeliness', val)}
+                              size="xs"
+                              placeholder="0"
+                              styles={{
+                                input: {
+                                  textAlign: 'center',
+                                  fontFamily: 'var(--ds-font-sans, sans-serif)',
+                                  borderColor: getScoreColor(ratings.timeliness),
+                                  color: getScoreColor(ratings.timeliness),
+                                  fontWeight: 700
+                                }
+                              }}
+                            />
+                          </Table.Td>
+
+                          {/* Price (C4) */}
+                          <Table.Td p="2" style={{ verticalAlign: 'middle' }}>
+                            <NumberInput
+                              min={1}
+                              max={100}
+                              value={ratings.price}
+                              onChange={(val) => handleRatingChange(sup.id, 'price', val)}
+                              size="xs"
+                              placeholder="0"
+                              styles={{
+                                input: {
+                                  textAlign: 'center',
+                                  fontFamily: 'var(--ds-font-sans, sans-serif)',
+                                  borderColor: getScoreColor(ratings.price),
+                                  color: getScoreColor(ratings.price),
+                                  fontWeight: 700
+                                }
+                              }}
+                            />
+                          </Table.Td>
+
+                          {/* Service (C5) */}
+                          <Table.Td p="2" style={{ verticalAlign: 'middle' }}>
+                            <NumberInput
+                              min={1}
+                              max={100}
+                              value={ratings.service}
+                              onChange={(val) => handleRatingChange(sup.id, 'service', val)}
+                              size="xs"
+                              placeholder="0"
+                              styles={{
+                                input: {
+                                  textAlign: 'center',
+                                  fontFamily: 'var(--ds-font-sans, sans-serif)',
+                                  borderColor: getScoreColor(ratings.service),
+                                  color: getScoreColor(ratings.service),
+                                  fontWeight: 700
+                                }
+                              }}
+                            />
+                          </Table.Td>
                         </Table.Tr>
                       );
                     })}
@@ -623,121 +881,12 @@ export default function SupplierEvaluationPage() {
                 </Table>
               </Table.ScrollContainer>
             </Paper>
-
-            {/* Weights Results Card */}
-            <Paper p="xl" radius="md" withBorder>
-               <Title order={3} mb="md" style={{ fontFamily: 'var(--ds-font-subheader)', color: '#1e5b3a' }}>
-                Criteria Priority Weights Results
-              </Title>
-              <Divider mb="lg" />
-
-              <Stack gap="md">
-                {(() => {
-                  const labels = [
-                    'Product Quality (C1)',
-                    'Delivery Accuracy (C2)',
-                    'Delivery Timeliness (C3)',
-                    'Price Competitiveness (C4)',
-                    'Service Responsiveness (C5)',
-                  ];
-
-                  return labels.map((lbl, idx) => {
-                    const weightPct = Math.round(ahpResult.weights[idx] * 100);
-                    return (
-                      <div key={idx}>
-                        <Group justify="space-between" mb="3">
-                          <Text size="xs" fw={700} c="var(--ds-gray-700)">{lbl}</Text>
-                          <Text size="xs" fw={800} c="#1e5b3a">{weightPct}%</Text>
-                        </Group>
-                        <div style={{ height: 10, width: '100%', backgroundColor: '#e9ecef', borderRadius: 5, overflow: 'hidden' }}>
-                          <div 
-                            style={{ 
-                              height: '100%', 
-                              width: `${weightPct}%`, 
-                              backgroundColor: '#1e5b3a',
-                              transition: 'width 0.5s ease'
-                            }} 
-                          />
-                        </div>
-                      </div>
-                    );
-                  });
-                })()}
-
-                {/* Consistency Ratio Audit Alert */}
-                {ahpResult.isConsistent ? (
-                  <Alert icon={<IconCheck size={16} />} title="Consistent Comparison" color="teal">
-                    Your pairwise comparison matrix has a valid consistency ratio (CR = {ahpResult.consistencyRatio.toFixed(3)} &lt; 0.1). Priority weights are ready for decision-making.
-                  </Alert>
-                ) : (
-                  <Alert icon={<IconAlertTriangle size={16} />} title="Inconsistent Comparison!" color="orange">
-                    The pairwise comparison matrix exceeds the consistency threshold (CR = {ahpResult.consistencyRatio.toFixed(3)} &ge; 0.1). Please adjust some ratings to ensure logical consistency.
-                  </Alert>
-                )}
-              </Stack>
-            </Paper>
-          </Stack>
           </Grid.Col>
 
-          {/* Column Right: Supplier Sliders & Radar Chart — 4/12 cols */}
+          {/* Column Right: Radar Chart — 4/12 cols */}
           <Grid.Col span={{ base: 12, lg: 4 }} style={{ display: 'flex', flexDirection: 'column' }}>
-          <Stack gap="lg" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-            {/* Qualitative Supplier Sliders Card */}
-            <Paper p="xl" radius="md" withBorder>
-              <Group gap="xs" mb="sm">
-                <IconUsers size={20} color="#1e5b3a" />
-                <Title order={3} style={{ fontFamily: 'var(--ds-font-subheader)', color: '#1e5b3a' }}>
-                  Qualitative Supplier Ratings
-                </Title>
-              </Group>
-              <Text size="xs" c="dimmed" mb="lg" style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}>
-                Quality (C1) and timeliness (C2, C3) are automatically resolved from SCM records. Adjust Price (C4) and Service (C5) parameters:
-              </Text>
-
-              <Stack gap="xl">
-                {suppliers.map(sup => {
-                  const ratings = supplierQualitativeRatings[sup.id] || { price: 80, service: 75 };
-                  return (
-                    <Card key={sup.id} p="sm" withBorder radius="sm">
-                      <Text size="sm" fw={700} c="var(--ds-primary)" mb="xs" style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}>{sup.name}</Text>
-                      
-                      {/* Price Slider */}
-                      <div style={{ marginBottom: 12 }}>
-                        <Group justify="space-between" mb={2}>
-                          <Text size="xxs" fw={700} c="dimmed" style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}>PRICE COMPETITIVENESS (C4)</Text>
-                          <Text size="xxs" fw={700} c="blue" style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}>{ratings.price}/100</Text>
-                        </Group>
-                        <Slider
-                          size="sm"
-                          color="blue"
-                          value={ratings.price}
-                          onChange={(val) => handleRatingChange(sup.id, 'price', val)}
-                          styles={{ thumb: { borderWidth: 1 } }}
-                        />
-                      </div>
-
-                      {/* Service Slider */}
-                      <div>
-                        <Group justify="space-between" mb={2}>
-                          <Text size="xxs" fw={700} c="dimmed" style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}>SERVICE RESPONSIVENESS (C5)</Text>
-                          <Text size="xxs" fw={700} c="teal" style={{ fontFamily: 'var(--ds-font-sans, sans-serif)' }}>{ratings.service}/100</Text>
-                        </Group>
-                        <Slider
-                          size="sm"
-                          color="teal"
-                          value={ratings.service}
-                          onChange={(val) => handleRatingChange(sup.id, 'service', val)}
-                          styles={{ thumb: { borderWidth: 1 } }}
-                        />
-                      </div>
-                    </Card>
-                  );
-                })}
-              </Stack>
-            </Paper>
-
             {/* Zero-Dependency SVG Radar Chart Card */}
-            <Paper p="xl" radius="md" withBorder style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <Paper p="xl" radius="md" withBorder style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
               <Group gap="xs" mb="sm">
                 <IconAward size={20} color="#1e5b3a" />
                 <Title order={3} style={{ fontFamily: 'var(--ds-font-subheader)', color: '#1e5b3a' }}>
@@ -752,7 +901,6 @@ export default function SupplierEvaluationPage() {
                 <SupplierRadarChart data={radarChartData} />
               </div>
             </Paper>
-          </Stack>
           </Grid.Col>
         </Grid>
 

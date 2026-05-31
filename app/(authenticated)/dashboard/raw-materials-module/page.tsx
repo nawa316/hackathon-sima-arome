@@ -54,6 +54,7 @@ export default function RawMaterialsDashboardPage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [rawMaterials, setRawMaterials] = useState<RawMaterial[]>([]);
   const [offers, setOffers] = useState<Offer[]>([]);
+  const [weights, setWeights] = useState<any[]>([]);
 
   const fetchData = async () => {
     try {
@@ -61,15 +62,17 @@ export default function RawMaterialsDashboardPage() {
       setError(null);
 
       // Fetch collections via server-side proxy
-      const [suppliersData, rawMaterialsData, offersData] = await Promise.all([
+      const [suppliersData, rawMaterialsData, offersData, weightsData] = await Promise.all([
         daasAPI.getItems<Supplier>('suppliers'),
         daasAPI.getItems<RawMaterial>('raw_materials'),
         daasAPI.getItems<Offer>('offers'),
+        daasAPI.getItems<any>('ahp_weights'),
       ]);
 
       setSuppliers(Array.isArray(suppliersData) ? suppliersData : []);
       setRawMaterials(Array.isArray(rawMaterialsData) ? rawMaterialsData : []);
       setOffers(Array.isArray(offersData) ? offersData : []);
+      setWeights(Array.isArray(weightsData) ? weightsData : []);
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
       setError('Failed to load procurement analytics data. Please refresh the page.');
@@ -127,8 +130,20 @@ export default function RawMaterialsDashboardPage() {
   }, [rawMaterials]);
 
   // 3. Dynamic AHP Supplier Rankings
-  // We use a balanced standard weight vector: Quality=0.40, Accuracy=0.20, Timeliness=0.15, Price=0.15, Service=0.10
-  const ahpWeights = [0.40, 0.20, 0.15, 0.15, 0.10];
+  const ahpWeights = React.useMemo(() => {
+    const globalRecord = weights.find(w => w.id === 'global_weights');
+    if (globalRecord) {
+      return [
+        Number(globalRecord.quality_c1 ?? 0.40),
+        Number(globalRecord.accuracy_c2 ?? 0.20),
+        Number(globalRecord.timeliness_c3 ?? 0.15),
+        Number(globalRecord.price_c4 ?? 0.15),
+        Number(globalRecord.service_c5 ?? 0.10),
+      ];
+    }
+    return [0.40, 0.20, 0.15, 0.15, 0.10];
+  }, [weights]);
+
   const rankedSuppliers = React.useMemo(() => {
     return suppliers
       .map(sup => {
@@ -143,22 +158,39 @@ export default function RawMaterialsDashboardPage() {
         const accepted = deliveries.filter(item => item.status === 'QC_ACCEPTED' || item.status === 'IN_PRODUCTION').length;
         const rejected = deliveries.filter(item => item.status === 'QC_REJECTED').length;
 
-        // Product Quality ratio (0-100)
-        const qualityScore = totalDeliveries > 0 ? (accepted / totalDeliveries) * 100 : 100;
-        
-        // C2: Delivery Accuracy — derived from rejection rate against historical intake logs
-        const accuracyScore = totalDeliveries > 0 ? Math.max(0, 100 - (rejected / totalDeliveries) * 50) : 100;
+        // Fallbacks calculations
+        const fallbackQuality = totalDeliveries > 0 ? (accepted / totalDeliveries) * 100 : 100;
+        const fallbackAccuracy = totalDeliveries > 0 ? Math.max(0, 100 - (rejected / totalDeliveries) * 50) : 100;
         
         const supOffers = offers.filter(o => o.supplier_id === sup.id);
         const avgLeadTime = supOffers.length > 0 ? supOffers.reduce((sum, o) => sum + o.lead_time, 0) / supOffers.length : 5;
-        const timelinessScore = Math.max(40, 100 - avgLeadTime * 5); // Faster is better
+        const fallbackTimeliness = Math.max(40, 100 - avgLeadTime * 5); // Faster is better
 
-        // Calculate Price Competitiveness relative to global average
         const avgPrice = supOffers.length > 0 ? supOffers.reduce((sum, o) => sum + Number(o.price), 0) / supOffers.length : 1500000;
-        const priceScore = avgPrice < 1200000 ? 95 : avgPrice < 2000000 ? 80 : 60;
+        const fallbackPrice = avgPrice < 1200000 ? 95 : avgPrice < 2000000 ? 80 : 60;
 
-        // C5: Service Responsiveness — uses favorite flag as a qualitative indicator
-        const serviceScore = sup.favorite ? 90 : 75;
+        const fallbackService = sup.favorite ? 90 : 75;
+
+        // Resolve criteria scores from manual ratings, or fallback to database logs
+        const qualityScore = sup.ahp_quality !== null && sup.ahp_quality !== undefined
+          ? Number(sup.ahp_quality)
+          : fallbackQuality;
+
+        const accuracyScore = sup.ahp_accuracy !== null && sup.ahp_accuracy !== undefined
+          ? Number(sup.ahp_accuracy)
+          : fallbackAccuracy;
+
+        const timelinessScore = sup.ahp_timeliness !== null && sup.ahp_timeliness !== undefined
+          ? Number(sup.ahp_timeliness)
+          : fallbackTimeliness;
+
+        const priceScore = sup.ahp_price !== null && sup.ahp_price !== undefined
+          ? Number(sup.ahp_price)
+          : fallbackPrice;
+
+        const serviceScore = sup.ahp_service !== null && sup.ahp_service !== undefined
+          ? Number(sup.ahp_service)
+          : fallbackService;
 
         const scores = {
           productQuality: qualityScore,
@@ -180,7 +212,7 @@ export default function RawMaterialsDashboardPage() {
       })
       .sort((a, b) => b.finalScore - a.finalScore)
       .slice(0, 5);
-  }, [suppliers, rawMaterials, offers, offerToSupplierMap]);
+  }, [suppliers, rawMaterials, offers, offerToSupplierMap, ahpWeights]);
 
   // 4. Custom SVG Charting
   // 4a. Trend Data prep (last 7 days of received raw materials)

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Box, Paper, Stack, Text, Group, ThemeIcon } from '@mantine/core';
+import { Box, Paper, Stack, Text, Group, ThemeIcon, Button } from '@mantine/core';
 import { useRouter } from 'next/navigation';
 import {
   IconShieldLock,
@@ -9,11 +9,13 @@ import {
   IconFlask,
   IconLeaf,
   IconClipboardCheck,
-  IconAlertCircle
+  IconAlertCircle,
+  IconLogout
 } from '@tabler/icons-react';
 
 interface ChooseModuleClientProps {
   displayName: string;
+  roleName: string;
   allowedModuleCodes: string[];
   isSuperAdmin: boolean;
   errorMessage: string | null;
@@ -21,11 +23,25 @@ interface ChooseModuleClientProps {
 
 export default function ChooseModuleClient({
   displayName,
+  roleName,
   allowedModuleCodes,
   isSuperAdmin,
   errorMessage,
 }: ChooseModuleClientProps) {
   const router = useRouter();
+
+  const handleLogout = async () => {
+    try {
+      const { createClient } = await import('@/lib/supabase/client');
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      router.push('/login');
+      router.refresh();
+    } catch (err) {
+      console.error('Logout failed:', err);
+      router.push('/login');
+    }
+  };
 
   // All 5 core system modules
   const allModules = [
@@ -181,7 +197,7 @@ export default function ChooseModuleClient({
         </Box>
 
         {/* Content Body */}
-        <Stack align="center" justify="center" style={{ flex: 1, padding: '40px 20px', zIndex: 1 }} gap="xl">
+        <Stack align="center" justify="center" style={{ flex: 1, padding: '40px 20px', zIndex: 1 }} gap="md">
           {/* Logo & Philosophy Quote */}
           <Stack align="center" gap="xs">
             <img
@@ -189,9 +205,41 @@ export default function ChooseModuleClient({
               alt="Sima Arôme Logo"
               style={{ width: '320px', maxWidth: '100%', objectFit: 'contain' }}
             />
-            <Text className="philosophy-text">
+            <Text className="philosophy-text" mb="xs">
               The Natural Sense Creator
             </Text>
+          </Stack>
+
+          {/* Dynamic Greeting & Logout */}
+          <Stack align="center" gap="xs" style={{ zIndex: 10 }}>
+            <Text
+              style={{
+                fontFamily: "var(--ds-font-sans, 'Inter', sans-serif)",
+                fontSize: '1.15rem',
+                color: 'var(--ds-primary, #1e5b3a)',
+                fontWeight: 700,
+                textAlign: 'center'
+              }}
+            >
+              Welcome back, {displayName} | <span style={{ color: 'var(--ds-primary-700, #143c26)' }}>{roleName}</span>
+            </Text>
+            <Button
+              variant="subtle"
+              color="red"
+              leftSection={<IconLogout size={16} />}
+              onClick={handleLogout}
+              styles={{
+                root: {
+                  fontFamily: "var(--ds-font-sans, 'Inter', sans-serif)",
+                  fontWeight: 600,
+                  fontSize: '0.85rem',
+                  padding: '4px 12px',
+                  height: 'auto',
+                }
+              }}
+            >
+              Logout
+            </Button>
           </Stack>
 
           {/* White Card Container */}
