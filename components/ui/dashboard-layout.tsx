@@ -77,6 +77,8 @@ export interface DashboardLayoutProps {
   sidebarWidth?: number;
   /** Header height in pixels */
   headerHeight?: number;
+  /** Option to hide the profile avatar */
+  hideAvatar?: boolean;
 }
 
 /**
@@ -138,6 +140,7 @@ export function DashboardLayout({
   moduleTitle,
   sidebarWidth = 280,
   headerHeight = 70,
+  hideAvatar = false,
 }: DashboardLayoutProps) {
   return (
     <AppShell
@@ -233,12 +236,14 @@ export function DashboardLayout({
                           <div className={classes.userRole}>{userInfo.role}</div>
                         )}
                       </div>
-                      <Avatar
-                        src={userInfo.avatar}
-                        alt={userInfo.name}
-                        size="md"
-                        radius="md"
-                      />
+                      {!hideAvatar && (
+                        <Avatar
+                          src={userInfo.avatar}
+                          alt={userInfo.name}
+                          size="md"
+                          radius="md"
+                        />
+                      )}
                       <IconChevronDown size={16} />
                     </Group>
                   </Menu.Target>
