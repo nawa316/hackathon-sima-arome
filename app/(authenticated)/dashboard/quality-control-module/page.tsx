@@ -27,7 +27,6 @@ import {
 import { useSetModuleTitle } from '@/lib/hooks/useSetModuleTitle';
 import { daasAPI } from '@/lib/buildpad/hooks/api';
 import { useAuth } from '@/lib/buildpad/hooks';
-import Link from 'next/link';
 
 interface RawMaterial {
   id: string;
@@ -65,7 +64,7 @@ interface DaaSUser {
 }
 
 export default function QCDashboardPage() {
-  useSetModuleTitle('QC Dashboard');
+  useSetModuleTitle('Quality Control Dashboard');
   const { user: currentUser } = useAuth();
 
   const [loading, setLoading] = useState(true);
@@ -263,14 +262,6 @@ export default function QCDashboardPage() {
             </Title>
             <Text c="dimmed">Here's what's happening in your quality operations today</Text>
           </div>
-          <Group gap="sm">
-            <Button component={Link} href="/dashboard/quality-control-module/raw" variant="filled" color="primary">
-              Inspect Raw Material
-            </Button>
-            <Button component={Link} href="/dashboard/quality-control-module/product" variant="light" color="primary">
-              Inspect Product Batch
-            </Button>
-          </Group>
         </Group>
 
         {/* Metric KPI Cards */}
@@ -463,9 +454,6 @@ export default function QCDashboardPage() {
                 Latest completed batch inspections
               </Text>
             </div>
-            <Button variant="outline" color="primary" component={Link} href="/dashboard/quality-control-module/raw">
-              View Activity Log
-            </Button>
           </Group>
 
           {recentActivities.length === 0 ? (

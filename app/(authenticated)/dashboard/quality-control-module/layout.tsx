@@ -49,19 +49,19 @@ export default function QualityControlLayout({
       },
       {
         id: 'dashboard',
-        label: 'QC Dashboard',
+        label: 'Dashboard',
         icon: <IconLayoutDashboard size={20} />,
         href: '/dashboard/quality-control-module',
       },
       {
         id: 'raw-qc',
-        label: 'Raw QC',
+        label: 'Raw Material Quality Control',
         icon: <IconClipboardCheck size={20} />,
         href: '/dashboard/quality-control-module/raw',
       },
       {
         id: 'stock-qc',
-        label: 'Stock QC',
+        label: 'Product Quality Control',
         icon: <IconAward size={20} />,
         href: '/dashboard/quality-control-module/product',
       },

@@ -23,15 +23,10 @@ import {
   Card,
   TextInput,
 } from '@mantine/core';
-import { Dropzone, IMAGE_MIME_TYPE, FileWithPath } from '@mantine/dropzone';
 import {
   IconArrowLeft,
-  IconUpload,
-  IconPhoto,
-  IconX,
   IconCheck,
   IconAlertCircle,
-  IconTrash,
   IconClipboardCheck,
 } from '@tabler/icons-react';
 import { useSetModuleTitle } from '@/lib/hooks/useSetModuleTitle';
@@ -42,7 +37,6 @@ import { logAuditTrail } from '@/lib/api/audit';
 import { notifications } from '@mantine/notifications';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import '@mantine/dropzone/styles.css';
 
 interface RawMaterial {
   id: string;
@@ -104,7 +98,6 @@ export default function RawMaterialQCDetailPage({
   // Form States
   const [qcResult, setQcResult] = useState<string>('PASSED');
   const [qcNotes, setQcNotes] = useState<string>('');
-  const [evidenceFiles, setEvidenceFiles] = useState<FileWithPath[]>([]);
   const [noteError, setNoteError] = useState<string | null>(null);
 
   // Fetch Batch details and QC History
@@ -186,24 +179,7 @@ export default function RawMaterialQCDetailPage({
     try {
       setSubmitting(true);
 
-      let imageIds: string[] = [];
 
-      // 1. Upload evidence images to DaaS storage if any files selected
-      if (evidenceFiles.length > 0) {
-        try {
-          const uploaded = await daasAPI.uploadFiles(evidenceFiles, {
-            folder: 'qc_evidence',
-          });
-          imageIds = uploaded.map((f) => f.id);
-        } catch (uploadErr) {
-          console.error('Failed to upload evidence images:', uploadErr);
-          notifications.show({
-            title: 'Upload Failed',
-            message: 'Failed to upload inspection evidence images. Proceeding without photos.',
-            color: 'orange',
-          });
-        }
-      }
 
       // 2. Submit the inspection result to the quality_control table
       const statusMap: Record<string, 'PASSED' | 'FAILED'> = {
@@ -238,7 +214,7 @@ export default function RawMaterialQCDetailPage({
         qc_status: newQcStatus,
         qc_notes: qcNotes,
         checked_by: checkedById,
-        evidence_images: imageIds, // JSONB array of file IDs
+        evidence_images: [], // Empty since evidence images feature is removed
       });
 
       // 3. Update the raw material batch status
@@ -268,14 +244,7 @@ export default function RawMaterialQCDetailPage({
     }
   };
 
-  // Files management
-  const handleDrop = (files: FileWithPath[]) => {
-    setEvidenceFiles((prev) => [...prev, ...files]);
-  };
 
-  const handleRemoveFile = (index: number) => {
-    setEvidenceFiles((prev) => prev.filter((_, i) => i !== index));
-  };
 
   // Breadcrumbs items
   const breadcrumbItems = [
@@ -438,23 +407,7 @@ export default function RawMaterialQCDetailPage({
                     </Paper>
                   </div>
 
-                  {qcRecord.evidence_images && qcRecord.evidence_images.length > 0 && (
-                    <div>
-                      <Text size="xs" c="dimmed" fw={700} mb="xs">EVIDENCE IMAGES</Text>
-                      <SimpleGrid cols={3} spacing="xs">
-                        {qcRecord.evidence_images.map((imgId, idx) => (
-                          <Paper key={idx} withBorder radius="md" style={{ overflow: 'hidden', height: '100px' }}>
-                            <Image
-                              src={daasAPI.getFileUrl(imgId, { width: 300, height: 300, quality: 80 })}
-                              alt={`Evidence ${idx + 1}`}
-                              height={100}
-                              fit="cover"
-                            />
-                          </Paper>
-                        ))}
-                      </SimpleGrid>
-                    </div>
-                  )}
+
                 </Stack>
               </Card>
             )}
@@ -501,82 +454,7 @@ export default function RawMaterialQCDetailPage({
                   required
                 />
 
-                {/* Image Upload Dropzone */}
-                <div>
-                  <Text size="sm" fw={600} mb={4}>
-                    Evidence Images (JPG, PNG)
-                  </Text>
-                  <Text size="xs" c="dimmed" mb={8}>
-                    Provide one or multiple files as inspection evidence for future AI visual defect model.
-                  </Text>
 
-                  <Dropzone
-                    onDrop={handleDrop}
-                    accept={IMAGE_MIME_TYPE}
-                    maxSize={5 * 1024 * 1024} // 5MB max
-                    radius="md"
-                    styles={{
-                      root: {
-                        border: '2px dashed var(--ds-gray-400)',
-                        backgroundColor: 'var(--ds-gray-200)',
-                        '&:hover': {
-                          backgroundColor: 'var(--ds-gray-300)',
-                        },
-                      },
-                    }}
-                  >
-                    <Group justify="center" gap="xl" mih={120} style={{ pointerEvents: 'none' }}>
-                      <Dropzone.Accept>
-                        <IconUpload size={40} stroke={1.5} color="var(--ds-primary)" />
-                      </Dropzone.Accept>
-                      <Dropzone.Reject>
-                        <IconX size={40} stroke={1.5} color="var(--ds-danger)" />
-                      </Dropzone.Reject>
-                      <Dropzone.Idle>
-                        <IconPhoto size={40} stroke={1.5} color="var(--ds-gray-500)" />
-                      </Dropzone.Idle>
-
-                      <div>
-                        <Text size="sm" inline>
-                          Drag images here or click to select files
-                        </Text>
-                        <Text size="xs" c="dimmed" inline mt={7}>
-                          Upload up to 5 images, maximum 5MB per file
-                        </Text>
-                      </div>
-                    </Group>
-                  </Dropzone>
-
-
-                  {/* Uploaded File Previews */}
-                  {evidenceFiles.length > 0 && (
-                    <SimpleGrid cols={4} spacing="xs" mt="md">
-                      {evidenceFiles.map((file, index) => {
-                        const imageUrl = URL.createObjectURL(file);
-                        return (
-                          <div key={index} style={{ position: 'relative', height: '80px' }}>
-                            <Image
-                              src={imageUrl}
-                              alt={`Preview ${index}`}
-                              height={80}
-                              fit="cover"
-                              radius="md"
-                            />
-                            <ActionIcon
-                              size="xs"
-                              color="red"
-                              variant="filled"
-                              style={{ position: 'absolute', top: 4, right: 4 }}
-                              onClick={() => handleRemoveFile(index)}
-                            >
-                              <IconTrash size={12} />
-                            </ActionIcon>
-                          </div>
-                        );
-                      })}
-                    </SimpleGrid>
-                  )}
-                </div>
 
                 <Button
                   type="submit"
