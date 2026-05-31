@@ -37,6 +37,7 @@ interface RawMaterial {
   received_at: string;
   weight_kg: number;
   offer_id: string;
+  supplier_id?: string;
 }
 
 interface Offer {
@@ -85,7 +86,7 @@ export default function RawMaterialQCListPage() {
     fetchData();
   }, []);
 
-  // Relationship Mapping: offer_id -> supplier_id -> supplier name
+  // Relationship Mapping: supplier_id -> supplier name (with fallback to offer_id)
   const rawMaterialsWithSuppliers = useMemo(() => {
     const offerToSupplierMap = new Map<string, string>();
     offers.forEach((off) => {
@@ -98,7 +99,7 @@ export default function RawMaterialQCListPage() {
     });
 
     return rawMaterials.map((mat) => {
-      const supplierId = offerToSupplierMap.get(mat.offer_id);
+      const supplierId = mat.supplier_id || (mat.offer_id ? offerToSupplierMap.get(mat.offer_id) : undefined);
       const supplierName = supplierId ? (supplierMap.get(supplierId) || 'Unknown Supplier') : 'Unknown Supplier';
 
       return {

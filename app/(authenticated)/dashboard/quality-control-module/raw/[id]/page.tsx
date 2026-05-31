@@ -46,6 +46,7 @@ interface RawMaterial {
   received_at: string;
   weight_kg: number;
   offer_id: string;
+  supplier_id?: string;
 }
 
 interface Offer {
@@ -113,17 +114,23 @@ export default function RawMaterialQCDetailPage({
         // Audit Trail: Log viewing this batch
         logAuditTrail('VIEW', 'raw_materials', id, undefined, `QC Staff viewed Batch ${mat.batch_code}`);
 
-        // Fetch supplier mapping via offer
+        // Fetch supplier mapping via supplier_id or offer fallback
         try {
-          const offer = await daasAPI.getItem<Offer>('offers', mat.offer_id);
-          if (offer) {
-            const supplier = await daasAPI.getItem<Supplier>('suppliers', offer.supplier_id);
+          let sId = mat.supplier_id;
+          if (!sId && mat.offer_id) {
+            const offer = await daasAPI.getItem<Offer>('offers', mat.offer_id);
+            if (offer) {
+              sId = offer.supplier_id;
+            }
+          }
+          if (sId) {
+            const supplier = await daasAPI.getItem<Supplier>('suppliers', sId);
             if (supplier) {
               setSupplierName(supplier.name);
             }
           }
-        } catch (offerErr) {
-          console.warn('Failed to fetch supplier details:', offerErr);
+        } catch (supplierErr) {
+          console.warn('Failed to fetch supplier details:', supplierErr);
         }
 
         // Fetch QC Record if exists
