@@ -451,3 +451,118 @@ export function useAllPhases() {
 
   return { phases, loading };
 }
+
+// ────────────────────────────────────────────────────────────
+// Warehouse hooks
+// ────────────────────────────────────────────────────────────
+
+export function useWarehouses() {
+  const [warehouses, setWarehouses] = useState<{ id: string; name: string; capacity: number }[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetch_ = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`${BASE}/warehouses?limit=200&fields=id,name,capacity`);
+        const json = await res.json();
+        setWarehouses(json.data ?? []);
+      } catch {
+        setWarehouses([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetch_();
+  }, []);
+
+  return { warehouses, loading };
+}
+
+export function useProductStocks() {
+  const [productStocks, setProductStocks] = useState<{ id: string; product_id: string; warehouse_id: string; amount: number }[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const refetch = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${BASE}/product_stocks?limit=500`);
+      const json = await res.json();
+      setProductStocks(json.data ?? []);
+    } catch {
+      setProductStocks([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refetch();
+  }, [refetch]);
+
+  return { productStocks, loading, refetch };
+}
+
+export function useCreateProductStock() {
+  const [loading, setLoading] = useState(false);
+  const create = useCallback(async (data: { product_id: string; warehouse_id: string; amount: number }) => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${BASE}/product_stocks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || json.message || `Failed to create product stock (${res.status})`);
+      }
+      return json;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  return { create, loading };
+}
+
+// ────────────────────────────────────────────────────────────
+// Raw material stock deduction hook
+// ────────────────────────────────────────────────────────────
+
+export function useUpdateRawMaterialStock() {
+  const [loading, setLoading] = useState(false);
+
+  const deductStock = useCallback(
+    async (items: { raw_material_id: string; quantity_used: number }[]) => {
+      if (items.length === 0) return;
+      setLoading(true);
+      try {
+        // Fetch current stock for each raw material
+        const fetchResults = await Promise.all(
+          items.map((item) =>
+            fetch(`${BASE}/raw_materials/${item.raw_material_id}?fields=id,weight_kg`)
+              .then((r) => r.json())
+              .then((json) => ({ id: item.raw_material_id, currentWeight: Number(json.data?.weight_kg ?? 0), quantityUsed: item.quantity_used }))
+          )
+        );
+
+        // PATCH each raw material with reduced weight
+        await Promise.all(
+          fetchResults.map(({ id, currentWeight, quantityUsed }) => {
+            const newWeight = Math.max(0, currentWeight - quantityUsed);
+            return fetch(`${BASE}/raw_materials/${id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ weight_kg: newWeight }),
+            });
+          })
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
+  return { deductStock, loading };
+}
